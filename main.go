@@ -10,7 +10,8 @@ import (
 	"code.cloudfoundry.org/lager"
 
 	"github.com/cloudfoundry/dropsonde"
-	"github.com/docker/docker/pkg/reexec"
+	storagereexec "github.com/containers/storage/pkg/reexec"
+	dockerreexecpkg "github.com/docker/docker/pkg/reexec"
 	"github.com/urfave/cli"
 )
 
@@ -23,7 +24,10 @@ const (
 )
 
 func init() {
-	if reexec.Init() {
+	if dockerreexecpkg.Init() {
+		os.Exit(0)
+	}
+	if storagereexec.Init() {
 		os.Exit(0)
 	}
 }

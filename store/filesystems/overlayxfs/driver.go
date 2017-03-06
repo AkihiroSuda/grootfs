@@ -84,6 +84,14 @@ func (d *Driver) DestroyVolume(logger lager.Logger, id string) error {
 	return nil
 }
 
+func (d *Driver) MoveVolume(from, to string) error {
+	var err error
+	if err = os.Rename(from, to); err != nil {
+		return errorspkg.Wrap(err, "moving volume")
+	}
+	return nil
+}
+
 func (d *Driver) Volumes(logger lager.Logger) ([]string, error) {
 	volumes := []string{}
 

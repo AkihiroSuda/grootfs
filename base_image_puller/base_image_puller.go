@@ -59,6 +59,7 @@ type VolumeDriver interface {
 	CreateVolume(logger lager.Logger, parentID, id string) (string, error)
 	DestroyVolume(logger lager.Logger, id string) error
 	Volumes(logger lager.Logger) ([]string, error)
+	MoveVolume(from, to string) error
 }
 
 type BaseImagePuller struct {
@@ -231,12 +232,11 @@ func (p *BaseImagePuller) buildLayer(logger lager.Logger, index int, layersDiges
 	})
 
 	finalVolumePath := strings.Replace(volumePath, tempVolumeName, digest.ChainID, 1)
-	if err := os.Rename(volumePath, finalVolumePath); err != nil {
+	if err := p.volumeDriver.MoveVolume(volumePath, finalVolumePath); err != nil {
 		logger.Error("moving-volume-failed", err, lager.Data{"from": volumePath, "to": finalVolumePath})
-		return "", errorspkg.Wrap(err, "moving volume")
+		return "", err
 	}
-
-	return volumePath, nil
+	return finalVolumePath, nil
 }
 
 func (p *BaseImagePuller) layersSize(layerDigests []LayerDigest) int64 {
