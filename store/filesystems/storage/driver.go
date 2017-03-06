@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/grootfs/groot"
+	"code.cloudfoundry.org/grootfs/store"
 	"code.cloudfoundry.org/grootfs/store/image_cloner"
 	"code.cloudfoundry.org/lager"
 	"github.com/containers/storage/drivers"
@@ -61,10 +62,24 @@ func (d *Driver) VolumePath(logger lager.Logger, id string) (string, error) {
 func (d *Driver) CreateVolume(logger lager.Logger, parentID, id string) (string, error) {
 	volumePath := filepath.Join(d.storePath, id)
 	err := d.storageDriver.Create(id, parentID, "", map[string]string{})
+	if err != nil {
+		return "", err
+	}
 	return volumePath, err
 }
 
 func (d *Driver) DestroyVolume(logger lager.Logger, id string) error {
+	// remove symlinked volumes
+	volumePath := filepath.Join(d.storePath, "volumes", id)
+	if err := os.RemoveAll(volumePath); err != nil {
+		logger.Error(fmt.Sprintf("failed to destroy volume %s", volumePath), err)
+		return errorspkg.Wrapf(err, "destroying volume (%s)", id)
+	}
+
+	// remove actual volumes
+	if err := d.storageDriver.Remove(id); err != nil {
+		return errorspkg.Wrap(err, "failed to remove volume related stuffz")
+	}
 
 	return nil
 }
@@ -87,7 +102,12 @@ func (d *Driver) MoveVolume(from, to string) error {
 
 	// path.Join should really end with 'diff' directory, but this means we need
 	// to change the directory we unpack to
-	if err := os.Symlink(path.Join("..", filepath.Base(to)), linkPath); err != nil {
+	volumeId := filepath.Base(to)
+	if err := os.Symlink(path.Join("..", volumeId), linkPath); err != nil {
+		return err
+	}
+
+	if err := os.Symlink(to, filepath.Join(d.storePath, store.VolumesDirName, volumeId)); err != nil {
 		return err
 	}
 
@@ -95,7 +115,16 @@ func (d *Driver) MoveVolume(from, to string) error {
 }
 
 func (d *Driver) Volumes(logger lager.Logger) ([]string, error) {
-	return []string{}, nil
+	volumes := []string{}
+	existingVolumes, err := ioutil.ReadDir(path.Join(d.storePath, store.VolumesDirName))
+	if err != nil {
+		return nil, errorspkg.Wrap(err, "failed to list volumes")
+	}
+
+	for _, volumeInfo := range existingVolumes {
+		volumes = append(volumes, volumeInfo.Name())
+	}
+	return volumes, nil
 }
 
 func (d *Driver) CreateImage(logger lager.Logger, spec image_cloner.ImageDriverSpec) error {
@@ -120,7 +149,19 @@ func (d *Driver) CreateImage(logger lager.Logger, spec image_cloner.ImageDriverS
 	return nil
 }
 
-func (d *Driver) DestroyImage(logger lager.Logger, path string) error { return nil }
+func (d *Driver) DestroyImage(logger lager.Logger, path string) error {
+	id := filepath.Base(path)
+
+	if err := d.storageDriver.Put(id); err != nil {
+		return errorspkg.Wrap(err, "failed to unmount image fs")
+	}
+
+	if err := d.storageDriver.Remove(id); err != nil {
+		return errorspkg.Wrap(err, "failed to remove image related stuffz")
+	}
+
+	return nil
+}
 
 func (d *Driver) FetchStats(logger lager.Logger, path string) (groot.VolumeStats, error) {
 	return groot.VolumeStats{}, nil
