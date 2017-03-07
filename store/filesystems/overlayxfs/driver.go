@@ -13,6 +13,8 @@ import (
 	"syscall"
 
 	"github.com/pkg/errors"
+	"github.com/tscolari/lagregator"
+	"github.com/urfave/cli"
 
 	"code.cloudfoundry.org/grootfs/groot"
 	"code.cloudfoundry.org/grootfs/store"
@@ -20,8 +22,26 @@ import (
 	quotapkg "code.cloudfoundry.org/grootfs/store/filesystems/overlayxfs/quota"
 	"code.cloudfoundry.org/grootfs/store/image_cloner"
 	"code.cloudfoundry.org/lager"
+	"github.com/docker/docker/pkg/reexec"
 	errorspkg "github.com/pkg/errors"
 )
+
+func init() {
+	reexec.Register("overlay-mount", func() {
+		cli.ErrWriter = os.Stdout
+		logger := lager.NewLogger("overlay-mount")
+		logger.RegisterSink(lager.NewWriterSink(os.Stderr, lager.DEBUG))
+
+		rootfsDir := os.Args[1]
+		mountData := os.Args[2]
+
+		if err := mountOverlay(rootfsDir, mountData); err != nil {
+			logger.Error("mounting overlay failed", err, lager.Data{"rootfsDir": rootfsDir, "mountData": mountData})
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+	})
+}
 
 const (
 	BaseFileSystemName = "xfs"
@@ -151,14 +171,47 @@ func (d *Driver) CreateImage(logger lager.Logger, spec image_cloner.ImageDriverS
 	}
 
 	mountData := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(baseVolumePaths, ":"), upperDir, workDir)
-	if err := syscall.Mount("overlay", rootfsDir, "overlay", 0, mountData); err != nil {
-		logger.Error("mounting-overlay-to-rootfs-failed", err, lager.Data{"mountData": mountData, "rootfsDir": rootfsDir})
-		return errors.Wrap(err, "mounting overlay")
+	mountCmd, outBuffer := mountOverlayCommand(logger, rootfsDir, mountData)
+
+	if err := mountCmd.Run(); err != nil {
+		logger.Error("mounting-overlay-to-rootfs-failed", err, lager.Data{"mountData": mountData, "rootfsDir": rootfsDir, "errorOutput": outBuffer.String()})
+		return errorspkg.Wrapf(err, "failed to mount overlay directory: %s", outBuffer.String())
 	}
 
 	imageInfoFileName := filepath.Join(spec.ImagePath, imageInfoName)
 	if err := ioutil.WriteFile(imageInfoFileName, []byte(strconv.FormatInt(baseVolumeSize, 10)), 0600); err != nil {
 		return errors.Wrapf(err, "writing image info %s", imageInfoFileName)
+	}
+
+	return nil
+}
+
+func mountOverlayCommand(logger lager.Logger, rootfsDir, mountData string) (*exec.Cmd, *bytes.Buffer) {
+	mountCmd := reexec.Command("overlay-mount", rootfsDir, mountData)
+
+	outBuffer := bytes.NewBuffer([]byte{})
+	mountCmd.Stdout = outBuffer
+	mountCmd.Stderr = lagregator.NewRelogger(logger)
+	mountCmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWUSER | syscall.CLONE_NEWNS,
+		UidMappings: []syscall.SysProcIDMap{
+			syscall.SysProcIDMap{HostID: 1000, ContainerID: 0, Size: 1},
+		},
+		GidMappings: []syscall.SysProcIDMap{
+			syscall.SysProcIDMap{HostID: 1000, ContainerID: 0, Size: 1},
+		},
+		Credential: &syscall.Credential{
+			Uid: 0,
+			Gid: 0,
+		},
+	}
+
+	return mountCmd, outBuffer
+}
+
+func mountOverlay(rootfsDir, mountData string) error {
+	if err := syscall.Mount("overlay", rootfsDir, "overlay", 0, mountData); err != nil {
+		return errors.Wrap(err, "mounting overlay")
 	}
 
 	return nil

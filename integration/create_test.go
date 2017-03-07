@@ -92,7 +92,7 @@ var _ = Describe("Create", func() {
 	})
 
 	Context("when mappings are provided", func() {
-		It("translates the rootfs accordingly", func() {
+		FIt("translates the rootfs accordingly", func() {
 			image, err := Runner.WithLogLevel(lager.DEBUG).
 				Create(groot.CreateSpec{
 					ID:        "some-id",
