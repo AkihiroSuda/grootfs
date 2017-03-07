@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 
 	"code.cloudfoundry.org/grootfs/groot"
 	"code.cloudfoundry.org/grootfs/store"
@@ -29,9 +30,16 @@ func NewDriver(filesystem, storePath string, uidMaps, gidMaps []string) (*Driver
 
 	var driver graphdriver.Driver
 
+	home := filepath.Join(storePath, "home")
 	switch filesystem {
 	case "overlay-ext4":
-		driver, err = overlay2.Init(storePath, []string{}, storageUIDMap, storageGIDMap)
+		driver, err = overlay2.Init(home, []string{}, storageUIDMap, storageGIDMap)
+	case "new-overlay-xfs":
+		size := strconv.Itoa(1024 * 1024 * 80)
+		minSpace := strconv.Itoa(1024 * 1024 * 10)
+
+		hardcodedOpts := []string{"overlay2.min_space=" + minSpace, "overlay2.size=" + size}
+		driver, err = overlay2.Init(home, hardcodedOpts, storageUIDMap, storageGIDMap)
 	default:
 		err = errorspkg.Errorf("Unsupported filesystem: %s", filesystem)
 	}
@@ -60,7 +68,7 @@ func (d *Driver) VolumePath(logger lager.Logger, id string) (string, error) {
 }
 
 func (d *Driver) CreateVolume(logger lager.Logger, parentID, id string) (string, error) {
-	volumePath := filepath.Join(d.storePath, id)
+	volumePath := filepath.Join(d.storePath, "home", id)
 	err := d.storageDriver.Create(id, parentID, "", map[string]string{})
 	if err != nil {
 		return "", err
@@ -85,33 +93,48 @@ func (d *Driver) DestroyVolume(logger lager.Logger, id string) error {
 }
 
 func (d *Driver) MoveVolume(from, to string) error {
+	from = filepath.Join(d.storePath, "home", filepath.Base(from))
+	to = filepath.Join(d.storePath, "home", filepath.Base(to))
 	var err error
 	if err = os.Rename(from, to); err != nil {
-		return errorspkg.Wrap(err, "moving volume")
+		if os.IsExist(err) {
+			if err := os.RemoveAll(from); err != nil {
+				return errorspkg.Wrap(err, "deleting pre-existing volume")
+			}
+		} else {
+			return errorspkg.Wrap(err, "moving volume")
+		}
 	}
 
-	linkFileContents, err := ioutil.ReadFile(filepath.Join(to, "link"))
+	linkPath, err := d.removeDeadLink(filepath.Join(to, "link"))
 	if err != nil {
-		return errorspkg.Wrap(err, "failed to read volume link file")
-	}
-
-	linkPath := path.Join(d.storePath, "l", string(linkFileContents))
-	if err := os.Remove(linkPath); err != nil {
-		return errorspkg.Wrap(err, "unable to delete stale symlink")
-	}
-
-	// path.Join should really end with 'diff' directory, but this means we need
-	// to change the directory we unpack to
-	volumeId := filepath.Base(to)
-	if err := os.Symlink(path.Join("..", volumeId), linkPath); err != nil {
 		return err
 	}
 
-	if err := os.Symlink(to, filepath.Join(d.storePath, store.VolumesDirName, volumeId)); err != nil {
+	volumeId := filepath.Base(to)
+	if err := os.Symlink(path.Join("..", volumeId), linkPath); err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	if err := os.Symlink(to, filepath.Join(d.storePath, store.VolumesDirName, volumeId)); err != nil && !os.IsExist(err) {
 		return err
 	}
 
 	return nil
+}
+
+func (d *Driver) removeDeadLink(linkFile string) (string, error) {
+	linkFileContents, err := ioutil.ReadFile(linkFile)
+	if err != nil {
+		return "", errorspkg.Wrap(err, "failed to read volume link file")
+	}
+
+	linkPath := path.Join(d.storePath, "home", "l", string(linkFileContents))
+	if err := os.Remove(linkPath); err != nil {
+		return "", errorspkg.Wrap(err, "unable to delete stale symlink")
+	}
+
+	return linkPath, nil
 }
 
 func (d *Driver) Volumes(logger lager.Logger) ([]string, error) {
@@ -136,7 +159,7 @@ func (d *Driver) CreateImage(logger lager.Logger, spec image_cloner.ImageDriverS
 		return errorspkg.Wrap(err, "failed to create read/write layer")
 	}
 
-	source := filepath.Join(d.storePath, id, "merged")
+	source := filepath.Join(d.storePath, "home", id, "merged")
 	if err := os.Symlink(source, filepath.Join(destination, "rootfs")); err != nil {
 		return err
 	}

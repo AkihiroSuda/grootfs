@@ -16,6 +16,8 @@ func createFileSystemDriver(cfg config.Config) (fileSystemDriver, error) {
 		return overlayxfs.NewDriver(cfg.XFSProgsPath, cfg.StorePath)
 	case "overlay-ext4":
 		return storage.NewDriver("overlay-ext4", cfg.StorePath, cfg.UIDMappings, cfg.GIDMappings)
+	case "new-overlay-xfs":
+		return storage.NewDriver("new-overlay-xfs", cfg.StorePath, cfg.UIDMappings, cfg.GIDMappings)
 	default:
 		return nil, errorspkg.Errorf("filesystem driver not supported: %s", cfg.FSDriver)
 	}
