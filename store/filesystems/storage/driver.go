@@ -187,7 +187,20 @@ func (d *Driver) DestroyImage(logger lager.Logger, path string) error {
 }
 
 func (d *Driver) FetchStats(logger lager.Logger, path string) (groot.VolumeStats, error) {
-	return groot.VolumeStats{}, nil
+	id := filepath.Base(path)
+	info, err := d.storageDriver.GetQuotaUsage(id)
+	if err != nil {
+		return groot.VolumeStats{}, errorspkg.Wrap(err, "failed to get image stats")
+	}
+
+	diskUsage := groot.DiskUsage{
+		ExclusiveBytesUsed: info["exclusive_bytes_used"],
+		TotalBytesUsed:     info["total_bytes_used"],
+	}
+
+	return groot.VolumeStats{
+		DiskUsage: diskUsage,
+	}, nil
 }
 
 func parseIDMappings(args []string) ([]idtools.IDMap, error) {
