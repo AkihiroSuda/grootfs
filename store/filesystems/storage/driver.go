@@ -188,14 +188,18 @@ func (d *Driver) DestroyImage(logger lager.Logger, path string) error {
 
 func (d *Driver) FetchStats(logger lager.Logger, path string) (groot.VolumeStats, error) {
 	id := filepath.Base(path)
-	info, err := d.storageDriver.GetQuotaUsage(id)
+	exclusiveSize, err := d.storageDriver.GetQuotaUsage(id)
 	if err != nil {
-		return groot.VolumeStats{}, errorspkg.Wrap(err, "failed to get image stats")
+		return groot.VolumeStats{}, errorspkg.Wrap(err, "failed to get exclusive disk usage")
+	}
+	volumeSize, err := d.storageDriver.GetVolumeSize(id)
+	if err != nil {
+		return groot.VolumeStats{}, errorspkg.Wrap(err, "failed to get volume disk usage")
 	}
 
 	diskUsage := groot.DiskUsage{
-		ExclusiveBytesUsed: info["exclusive_bytes_used"],
-		TotalBytesUsed:     info["total_bytes_used"],
+		ExclusiveBytesUsed: exclusiveSize,
+		TotalBytesUsed:     exclusiveSize + volumeSize,
 	}
 
 	return groot.VolumeStats{
