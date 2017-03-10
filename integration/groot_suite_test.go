@@ -8,13 +8,11 @@ import (
 	"os/exec"
 	"os/user"
 	"path"
-	"path/filepath"
 	"strconv"
 	"time"
 
 	"code.cloudfoundry.org/grootfs/integration"
 	"code.cloudfoundry.org/grootfs/integration/runner"
-	"code.cloudfoundry.org/grootfs/store"
 	"code.cloudfoundry.org/grootfs/testhelpers"
 	"code.cloudfoundry.org/lager"
 
@@ -124,19 +122,19 @@ func TestGroot(t *testing.T) {
 	})
 
 	AfterEach(func() {
-		if Driver == "overlay-xfs" {
-			testhelpers.CleanUpOverlayMounts(StorePath, "images")
-		} else {
-			testhelpers.CleanUpBtrfsSubvolumes(btrfsMountPath, StoreName)
-			Expect(os.RemoveAll(StorePath)).To(Succeed())
-		}
+		// if Driver == "overlay-xfs" {
+		// 	testhelpers.CleanUpOverlayMounts(StorePath, "images")
+		// } else {
+		// 	testhelpers.CleanUpBtrfsSubvolumes(btrfsMountPath, StoreName)
+		// 	Expect(os.RemoveAll(StorePath)).To(Succeed())
+		// }
 
-		os.RemoveAll(filepath.Join(StorePath, store.MetaDirName))
-		os.RemoveAll(filepath.Join(StorePath, store.ImageDirName))
-		os.RemoveAll(filepath.Join(StorePath, store.VolumesDirName))
-		os.RemoveAll(filepath.Join(StorePath, store.LocksDirName))
-		os.RemoveAll(filepath.Join(StorePath, store.CacheDirName))
-		os.RemoveAll(filepath.Join(StorePath, store.TempDirName))
+		// os.RemoveAll(filepath.Join(StorePath, store.MetaDirName))
+		// os.RemoveAll(filepath.Join(StorePath, store.ImageDirName))
+		// os.RemoveAll(filepath.Join(StorePath, store.VolumesDirName))
+		// os.RemoveAll(filepath.Join(StorePath, store.LocksDirName))
+		// os.RemoveAll(filepath.Join(StorePath, store.CacheDirName))
+		// os.RemoveAll(filepath.Join(StorePath, store.TempDirName))
 	})
 
 	RunSpecs(t, "Integration Suite")

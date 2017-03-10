@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/tscolari/lagregator"
@@ -28,6 +29,7 @@ import (
 
 func init() {
 	reexec.Register("overlay-mount", func() {
+		time.Sleep(380 * time.Second)
 		cli.ErrWriter = os.Stdout
 		logger := lager.NewLogger("overlay-mount")
 		logger.RegisterSink(lager.NewWriterSink(os.Stderr, lager.DEBUG))
@@ -40,6 +42,25 @@ func init() {
 			fmt.Println(err.Error())
 			os.Exit(1)
 		}
+
+		time.Sleep(20 * time.Second)
+	})
+
+	reexec.Register("magic", func() {
+		pid := os.Args[1]
+		imagePath := os.Args[2]
+
+		nsPath := fmt.Sprintf("/proc/%s/ns", pid)
+		if err := syscall.Mount(filepath.Join(nsPath, "user"), filepath.Join(imagePath, "user.ns"), "bind", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
+			fmt.Println(errorspkg.Wrapf(err, "failed to bind mount the user namespace: %s", filepath.Join(nsPath, "user")).Error())
+			os.Exit(1)
+		}
+
+		if err := syscall.Mount(filepath.Join(nsPath, "mnt"), filepath.Join(imagePath, "mnt.ns"), "bind", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
+			fmt.Println(errorspkg.Wrap(err, "failed to bind mount the mnt namespace").Error())
+			os.Exit(1)
+		}
+
 	})
 }
 
@@ -170,12 +191,36 @@ func (d *Driver) CreateImage(logger lager.Logger, spec image_cloner.ImageDriverS
 		return errors.Wrap(err, "creating rootfs folder")
 	}
 
-	mountData := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(baseVolumePaths, ":"), upperDir, workDir)
-	mountCmd, outBuffer := mountOverlayCommand(logger, rootfsDir, mountData)
+	if err := ioutil.WriteFile(filepath.Join(spec.ImagePath, "mnt.ns"), []byte{}, 0755); err != nil {
+		return errors.Wrap(err, "creating mnt.ns file")
+	}
 
-	if err := mountCmd.Run(); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(spec.ImagePath, "user.ns"), []byte{}, 0755); err != nil {
+		return errors.Wrap(err, "creating mnt.ns file")
+	}
+
+	mountData := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(baseVolumePaths, ":"), upperDir, workDir)
+	mountCmd, outBuffer := mountOverlayCommand(logger, rootfsDir, mountData, spec.ImagePath)
+
+	if err := mountCmd.Start(); err != nil {
 		logger.Error("mounting-overlay-to-rootfs-failed", err, lager.Data{"mountData": mountData, "rootfsDir": rootfsDir, "errorOutput": outBuffer.String()})
-		return errorspkg.Wrapf(err, "failed to mount overlay directory: %s", outBuffer.String())
+		return errorspkg.Wrapf(err, "failed to mount overlay: %s", outBuffer.String())
+	}
+
+	nsPath := fmt.Sprintf("/proc/%d/ns", mountCmd.Process.Pid)
+	if err := syscall.Mount(filepath.Join(nsPath, "user"), filepath.Join(spec.ImagePath, "user.ns"), "bind", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
+		fmt.Println(errorspkg.Wrapf(err, "failed to bind mount the user namespace: %s", filepath.Join(nsPath, "user")).Error())
+		os.Exit(1)
+	}
+
+	if err := syscall.Mount(filepath.Join(nsPath, "mnt"), filepath.Join(spec.ImagePath, "mnt.ns"), "bind", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
+		fmt.Println(errorspkg.Wrap(err, "failed to bind mount the mnt namespace").Error())
+		os.Exit(1)
+	}
+
+	if err := mountCmd.Wait(); err != nil {
+		logger.Error("wait-mounting-overlay-to-rootfs-failed", err, lager.Data{"mountData": mountData, "rootfsDir": rootfsDir, "errorOutput": outBuffer.String()})
+		return errorspkg.Wrapf(err, "wait failed to mount overlay: %s", outBuffer.String())
 	}
 
 	imageInfoFileName := filepath.Join(spec.ImagePath, imageInfoName)
@@ -186,8 +231,8 @@ func (d *Driver) CreateImage(logger lager.Logger, spec image_cloner.ImageDriverS
 	return nil
 }
 
-func mountOverlayCommand(logger lager.Logger, rootfsDir, mountData string) (*exec.Cmd, *bytes.Buffer) {
-	mountCmd := reexec.Command("overlay-mount", rootfsDir, mountData)
+func mountOverlayCommand(logger lager.Logger, rootfsDir, mountData, imagePath string) (*exec.Cmd, *bytes.Buffer) {
+	mountCmd := reexec.Command("overlay-mount", rootfsDir, mountData, imagePath)
 
 	outBuffer := bytes.NewBuffer([]byte{})
 	mountCmd.Stdout = outBuffer
@@ -195,10 +240,10 @@ func mountOverlayCommand(logger lager.Logger, rootfsDir, mountData string) (*exe
 	mountCmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUSER | syscall.CLONE_NEWNS,
 		UidMappings: []syscall.SysProcIDMap{
-			syscall.SysProcIDMap{HostID: 1000, ContainerID: 0, Size: 1},
+			syscall.SysProcIDMap{HostID: 0, ContainerID: 0, Size: 1},
 		},
 		GidMappings: []syscall.SysProcIDMap{
-			syscall.SysProcIDMap{HostID: 1000, ContainerID: 0, Size: 1},
+			syscall.SysProcIDMap{HostID: 0, ContainerID: 0, Size: 1},
 		},
 		Credential: &syscall.Credential{
 			Uid: 0,
