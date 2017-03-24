@@ -99,7 +99,7 @@ var _ = Describe("Create with remote images", func() {
 
 		Context("when the --json flag is provided", func() {
 			It("outputs a json with the correct `rootfs` key", func() {
-				output, err := Runner.WithJson().CreateOutput(groot.CreateSpec{
+				image, err := Runner.WithJson().Create(groot.CreateSpec{
 					BaseImage: "docker:///busybox:1.26.2",
 					ID:        "random-id",
 					UIDMappings: []groot.IDMappingSpec{
@@ -114,12 +114,12 @@ var _ = Describe("Create with remote images", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				outputObj := map[string]interface{}{}
-				Expect(json.Unmarshal([]byte(output), &outputObj)).To(Succeed())
+				Expect(json.Unmarshal([]byte(image.Json), &outputObj)).To(Succeed())
 				Expect(outputObj["rootfs"]).To(Equal(filepath.Join(StorePath, store.ImageDirName, "random-id", "rootfs")))
 			})
 
 			It("outputs a json with the correct `config` key", func() {
-				output, err := Runner.WithJson().CreateOutput(groot.CreateSpec{
+				image, err := Runner.WithJson().Create(groot.CreateSpec{
 					BaseImage: "docker:///busybox:1.26.2",
 					ID:        "random-id",
 					UIDMappings: []groot.IDMappingSpec{
@@ -134,7 +134,7 @@ var _ = Describe("Create with remote images", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				outputObj := map[string]interface{}{}
-				Expect(json.Unmarshal([]byte(output), &outputObj)).To(Succeed())
+				Expect(json.Unmarshal([]byte(image.Json), &outputObj)).To(Succeed())
 				Expect(outputObj["config"]).To(Equal(integration.Busybox1262Config()))
 			})
 		})

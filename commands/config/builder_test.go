@@ -609,5 +609,33 @@ var _ = Describe("Builder", func() {
 				})
 			})
 		})
+
+		Describe("WithSkipMount", func() {
+			Context("when it's not set", func() {
+				BeforeEach(func() {
+					cfg.Create.SkipMount = true
+				})
+
+				It("returns config original value", func() {
+					builder = builder.WithSkipMount(false)
+					config, err := builder.Build()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(config.Create.SkipMount).To(BeTrue())
+				})
+			})
+
+			Context("when it's set", func() {
+				BeforeEach(func() {
+					cfg.Create.SkipMount = false
+				})
+
+				It("overrides the config value", func() {
+					builder = builder.WithSkipMount(true)
+					config, err := builder.Build()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(config.Create.SkipMount).To(BeTrue())
+				})
+			})
+		})
 	})
 })

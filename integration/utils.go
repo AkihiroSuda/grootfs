@@ -76,6 +76,12 @@ func SkipIfNonRoot(uid int) {
 	}
 }
 
+func SkipIfXFSAndNonRoot(driver string, uid int) {
+	if uid != 0 && driver == "overlay-xfs" {
+		Skip("These tests can not run with XFS and non-Root user")
+	}
+}
+
 func CreateFakeDrax() (string, *os.File, *os.File) {
 	tempFolder, bin, binCalledFile := CreateFakeBin("drax")
 	testhelpers.SuidDrax(bin.Name())

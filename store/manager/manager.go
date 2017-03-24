@@ -109,14 +109,14 @@ func (m *Manager) ConfigureStore(logger lager.Logger, ownerUID, ownerGID int) er
 		}
 	}
 
-	if err := m.storeDriver.ConfigureStore(logger, m.storePath, ownerUID, ownerGID); err != nil {
-		logger.Error("store-filesystem-specific-configuration-failed", err)
-		return errorspkg.Wrap(err, "running filesystem-specific configuration")
-	}
-
 	if err := m.storeDriver.ValidateFileSystem(logger, m.storePath); err != nil {
 		logger.Error("filesystem-validation-failed", err)
 		return errorspkg.Wrap(err, "validating file system")
+	}
+
+	if err := m.storeDriver.ConfigureStore(logger, m.storePath, ownerUID, ownerGID); err != nil {
+		logger.Error("store-filesystem-specific-configuration-failed", err)
+		return errorspkg.Wrap(err, "running filesystem-specific configuration")
 	}
 
 	return nil

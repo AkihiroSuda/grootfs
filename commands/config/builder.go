@@ -220,6 +220,14 @@ func (b *Builder) WithJson(json bool, noJson bool) *Builder {
 	return b
 }
 
+func (b *Builder) WithSkipMount(skipMountSet bool) *Builder {
+	if skipMountSet {
+		b.config.Create.SkipMount = true
+	}
+
+	return b
+}
+
 func load(configPath string) (Config, error) {
 	configContent, err := ioutil.ReadFile(configPath)
 	if err != nil {

@@ -45,6 +45,8 @@ mount_storage() {
     mkdir /mnt/xfs-${i}
     mount -t xfs -o pquota /xfs_volume_${i} /mnt/xfs-${i}
     chmod 777 -R /mnt/xfs-${i}
+    mknod /mnt/xfs-${i}/whiteout_dev c 0 0
+    chown 1000:1000 /mnt/xfs-${i}/whiteout_dev
   done
 }
 

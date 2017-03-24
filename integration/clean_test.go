@@ -31,6 +31,8 @@ var _ = Describe("Clean", func() {
 		)
 
 		BeforeEach(func() {
+			integration.SkipIfXFSAndNonRoot(Driver, GrootfsTestUid)
+
 			var err error
 			sourceImagePath, err = ioutil.TempDir("", "")
 			sess, err := gexec.Start(exec.Command("dd", "if=/dev/zero", fmt.Sprintf("of=%s", filepath.Join(sourceImagePath, "foo")), "count=2", "bs=1M"), GinkgoWriter, nil)

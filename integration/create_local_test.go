@@ -75,26 +75,26 @@ var _ = Describe("Create with local images", func() {
 
 	Context("when the --json flag is provided", func() {
 		It("outputs a json with the correct `rootfs` key", func() {
-			output, err := Runner.WithJson().CreateOutput(groot.CreateSpec{
+			image, err := Runner.WithJson().Create(groot.CreateSpec{
 				BaseImage: baseImagePath,
 				ID:        "random-id",
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			outputObj := map[string]interface{}{}
-			Expect(json.Unmarshal([]byte(output), &outputObj)).To(Succeed())
+			Expect(json.Unmarshal([]byte(image.Json), &outputObj)).To(Succeed())
 			Expect(outputObj["rootfs"]).To(Equal(filepath.Join(StorePath, store.ImageDirName, "random-id", "rootfs")))
 		})
 
 		It("outputs a json with empty config key", func() {
-			output, err := Runner.WithJson().CreateOutput(groot.CreateSpec{
+			image, err := Runner.WithJson().Create(groot.CreateSpec{
 				BaseImage: baseImagePath,
 				ID:        "random-id",
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			var outputObj map[string]interface{}
-			Expect(json.Unmarshal([]byte(output), &outputObj)).To(Succeed())
+			Expect(json.Unmarshal([]byte(image.Json), &outputObj)).To(Succeed())
 			Expect(outputObj["config"]).To(BeNil())
 		})
 	})
@@ -144,6 +144,10 @@ var _ = Describe("Create with local images", func() {
 	})
 
 	Describe("clean up on create", func() {
+		BeforeEach(func() {
+			integration.SkipIfXFSAndNonRoot(Driver, GrootfsTestUid)
+		})
+
 		JustBeforeEach(func() {
 			_, err := Runner.Create(groot.CreateSpec{
 				ID:        "my-image-1",

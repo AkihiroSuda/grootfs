@@ -20,6 +20,8 @@ var _ = Describe("List", func() {
 	var image groot.Image
 
 	BeforeEach(func() {
+		integration.SkipIfXFSAndNonRoot(Driver, GrootfsTestUid)
+
 		sourceImagePath, err := ioutil.TempDir("", "")
 		Expect(err).NotTo(HaveOccurred())
 

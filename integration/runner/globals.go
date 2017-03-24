@@ -247,3 +247,30 @@ func (r Runner) RunningAsUser(uid, gid uint32) Runner {
 	}
 	return nr
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// SkipMount
+///////////////////////////////////////////////////////////////////////////////
+
+func (r *Runner) skipMount() error {
+	if r.ConfigPath == "" {
+		r.SetConfig(config.Config{
+			Create: config.Create{SkipMount: true},
+		})
+		return nil
+	}
+
+	yamlContents, err := ioutil.ReadFile(r.ConfigPath)
+	if err != nil {
+		return err
+	}
+
+	var config config.Config
+	err = yaml.Unmarshal(yamlContents, &config)
+	if err != nil {
+		return err
+	}
+
+	config.Create.SkipMount = true
+	return r.SetConfig(config)
+}

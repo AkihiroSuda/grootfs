@@ -27,6 +27,8 @@ var _ = Describe("Stats", func() {
 	)
 
 	BeforeEach(func() {
+		integration.SkipIfXFSAndNonRoot(Driver, GrootfsTestUid)
+
 		var err error
 		sourceImagePath, err = ioutil.TempDir("", "")
 		Expect(err).NotTo(HaveOccurred())
