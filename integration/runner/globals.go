@@ -255,7 +255,10 @@ func (r Runner) RunningAsUser(uid, gid uint32) Runner {
 func (r *Runner) skipMount() error {
 	if r.ConfigPath == "" {
 		r.SetConfig(config.Config{
-			Create: config.Create{SkipMount: true},
+			Create: config.Create{
+				SkipMount: true,
+				Json:      true,
+			},
 		})
 		return nil
 	}
@@ -272,5 +275,6 @@ func (r *Runner) skipMount() error {
 	}
 
 	config.Create.SkipMount = true
+	config.Create.Json = true
 	return r.SetConfig(config)
 }

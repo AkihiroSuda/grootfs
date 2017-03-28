@@ -29,7 +29,7 @@ const (
 	tenMegabytes = int64(10485760)
 )
 
-var _ = Describe("Create", func() {
+var _ = FDescribe("Create", func() {
 	var (
 		baseImagePath   string
 		sourceImagePath string
@@ -772,7 +772,7 @@ var _ = Describe("Create", func() {
 				cfg.Create.SkipMount = true
 			})
 
-			FIt("does not mount the rootfs", func() {
+			XIt("does not mount the rootfs", func() {
 				image, err := Runner.Create(groot.CreateSpec{
 					ID:        "some-id",
 					BaseImage: baseImagePath,
@@ -810,11 +810,13 @@ var _ = Describe("Create", func() {
 						filepath.Join(StorePath, store.ImageDirName, "some-id", overlayxfs.WorkDir),
 					),
 				))
+				Expect(syscall.Mount(imageJson.Mount.Source, imageJson.Mount.Destination, imageJson.Mount.Type, 0, imageJson.Mount.Options[0])).To(Succeed())
 			})
 
-			Context("but `json` is not", func() {
+			FContext("but `json` is not", func() {
 				BeforeEach(func() {
 					cfg.Create.Json = false
+					cfg.Create.SkipMount = true
 				})
 
 				It("returns an error", func() {

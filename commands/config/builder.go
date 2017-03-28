@@ -61,12 +61,8 @@ func NewBuilder(pathToYaml string) (*Builder, error) {
 }
 
 func (b *Builder) Build() (Config, error) {
-	if b.config.Create.DiskLimitSizeBytes < 0 {
-		return *b.config, errorspkg.New("invalid argument: disk limit cannot be negative")
-	}
-
-	if b.config.Clean.ThresholdBytes < 0 {
-		return *b.config, errorspkg.New("invalid argument: clean threshold cannot be negative")
+	if err := validateConfig(b.config); err != nil {
+		return *b.config, err
 	}
 
 	return *b.config, nil
@@ -220,13 +216,13 @@ func (b *Builder) WithJson(json bool, noJson bool) *Builder {
 	return b
 }
 
-func (b *Builder) WithSkipMount(skipMountSet bool) *Builder {
-	if skipMountSet {
-		b.config.Create.SkipMount = true
-	}
+// func (b *Builder) WithSkipMount(skipMountSet bool) *Builder {
+// 	if skipMountSet {
+// 		b.config.Create.SkipMount = true
+// 	}
 
-	return b
-}
+// 	return b
+// }
 
 func load(configPath string) (Config, error) {
 	configContent, err := ioutil.ReadFile(configPath)
@@ -241,4 +237,24 @@ func load(configPath string) (Config, error) {
 	}
 
 	return config, nil
+}
+
+func validateConfig(config *Config) error {
+	if config.Create.DiskLimitSizeBytes < 0 {
+		return errorspkg.New("invalid argument: disk limit cannot be negative")
+	}
+
+	if config.Clean.ThresholdBytes < 0 {
+		return errorspkg.New("invalid argument: clean threshold cannot be negative")
+	}
+
+	if config.Create.SkipMount && !config.Create.Json {
+		return errorspkg.New("skip mount option must be called with `json`")
+	}
+
+	if config.Create.SkipMount && config.FSDriver == "btrfs" {
+		return errorspkg.New("skip mount option is not supported by the btrfs driver")
+	}
+
+	return nil
 }
