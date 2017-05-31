@@ -15,7 +15,6 @@ import (
 	"code.cloudfoundry.org/grootfs/groot"
 	"code.cloudfoundry.org/grootfs/store"
 	"code.cloudfoundry.org/grootfs/store/filesystems"
-	quotapkg "code.cloudfoundry.org/grootfs/store/filesystems/overlayxfs/quota"
 	"code.cloudfoundry.org/grootfs/store/image_cloner"
 	"code.cloudfoundry.org/lager"
 	errorspkg "github.com/pkg/errors"
@@ -78,7 +77,7 @@ func (d *Driver) ValidateFileSystem(logger lager.Logger, path string) error {
 	logger.Debug("starting")
 	defer logger.Debug("ending")
 
-	if err := filesystems.CheckFSPath(path, "xfs", "noatime", "nobarrier", "prjquota"); err != nil {
+	if err := filesystems.CheckFSPath(path, "xfs", "noatime", "nobarrier"); err != nil {
 		logger.Error("validating-filesystem", err)
 		return errorspkg.Wrap(err, "overlay-xfs filesystem validation")
 	}
@@ -350,7 +349,7 @@ func (d *Driver) findAssociatedLoopDevice(filePath string) (string, error) {
 }
 
 func (d *Driver) mountFilesystem(source, destination, option, externalLogPath string) error {
-	allOpts := strings.Trim(fmt.Sprintf("%s,loop,pquota,noatime,nobarrier", option), ",")
+	allOpts := strings.Trim(fmt.Sprintf("%s,loop,noatime,nobarrier", option), ",")
 
 	if d.externalLogSize > 0 {
 		loopdevPath, err := d.findAssociatedLoopDevice(externalLogPath)
@@ -461,28 +460,7 @@ func (d *Driver) applyDiskLimit(logger lager.Logger, spec image_cloner.ImageDriv
 	logger.Debug("starting")
 	defer logger.Debug("ending")
 
-	if spec.DiskLimit == 0 {
-		logger.Debug("no-need-for-quotas")
-		return nil
-	}
-
-	diskLimit := spec.DiskLimit
-	if spec.ExclusiveDiskLimit {
-		logger.Debug("applying-exclusive-quotas")
-	} else {
-		logger.Debug("applying-inclusive-quotas")
-		diskLimit -= volumeSize
-		if diskLimit < 0 {
-			err := errorspkg.New("disk limit is smaller than volume size")
-			logger.Error("applying-inclusive-quota-failed", err, lager.Data{"imagePath": spec.ImagePath})
-			return err
-		}
-	}
-
-	if output, err := d.runTardis(logger, "limit", "--disk-limit-bytes", strconv.FormatInt(diskLimit, 10), "--image-path", spec.ImagePath); err != nil {
-		logger.Error("applying-quota-failed", err, lager.Data{"diskLimit": diskLimit, "imagePath": spec.ImagePath})
-		return errorspkg.Wrapf(err, "apply disk limit: %s", output.String())
-	}
+	logger.Info("quotas-are-disabled-skipping")
 
 	return nil
 }
@@ -497,56 +475,20 @@ func (d *Driver) FetchStats(logger lager.Logger, imagePath string) (groot.Volume
 		return groot.VolumeStats{}, errorspkg.Wrapf(err, "image path (%s) doesn't exist", imagePath)
 	}
 
-	projectID, err := quotapkg.GetProjectID(imagePath)
-	if err != nil {
-		logger.Error("fetching-project-id-failed", err)
-		return groot.VolumeStats{}, errorspkg.Wrapf(err, "fetching project id for %s", imagePath)
-	}
-
-	var exclusiveSize int64
-	if projectID != 0 {
-		exclusiveSize, err = d.listQuotaUsage(logger, imagePath)
-		if err != nil {
-			logger.Error("list-quota-usage-failed", err, lager.Data{"projectID": projectID})
-			return groot.VolumeStats{}, errorspkg.Wrapf(err, "listing quota usage %s", imagePath)
-		}
-	}
-
 	volumeSize, err := d.readImageInfo(logger, imagePath)
 	if err != nil {
 		logger.Error("reading-image-info-failed", err)
 		return groot.VolumeStats{}, errorspkg.Wrapf(err, "reading image info %s", imagePath)
 	}
 
-	logger.Debug("usage", lager.Data{"volumeSize": volumeSize, "exclusiveSize": exclusiveSize})
+	logger.Debug("usage", lager.Data{"volumeSize": volumeSize, "exclusiveSize": 0, "quotas": "disabled"})
 
 	return groot.VolumeStats{
 		DiskUsage: groot.DiskUsage{
-			ExclusiveBytesUsed: exclusiveSize,
-			TotalBytesUsed:     volumeSize + exclusiveSize,
+			ExclusiveBytesUsed: 0,
+			TotalBytesUsed:     volumeSize,
 		},
 	}, nil
-}
-
-func (d *Driver) listQuotaUsage(logger lager.Logger, imagePath string) (int64, error) {
-	logger = logger.Session("listing-quota-usage", lager.Data{"imagePath": imagePath})
-	logger.Debug("starting")
-	defer logger.Debug("ending")
-
-	imagesPath := filepath.Join(d.storePath, store.ImageDirName)
-	quotaControl, err := quotapkg.NewControl(imagesPath)
-	if err != nil {
-		logger.Error("creating-quota-control-failed", err)
-		return 0, errorspkg.Wrapf(err, "creating quota control")
-	}
-
-	var quota quotapkg.Quota
-	if err := quotaControl.GetQuota(imagePath, &quota); err != nil {
-		logger.Error("getting-quota-failed", err)
-		return 0, errorspkg.Wrapf(err, "getting quota %s", imagePath)
-	}
-
-	return int64(quota.BCount), nil
 }
 
 func (d *Driver) duUsage(logger lager.Logger, path string) (int64, error) {
