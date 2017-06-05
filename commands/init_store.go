@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"code.cloudfoundry.org/grootfs/commands/config"
+	"code.cloudfoundry.org/grootfs/commands/idmapping_parser"
 	"code.cloudfoundry.org/grootfs/groot"
 	"code.cloudfoundry.org/grootfs/store/manager"
 	"code.cloudfoundry.org/lager"
@@ -35,6 +36,11 @@ var InitStoreCommand = cli.Command{
 			Name:  "external-logdev-size-mb",
 			Usage: "Size of the external log device when using XFS driver. 0 to disable. Only works with store-size-bytes option.",
 			Value: 0,
+		},
+		cli.StringFlag{
+			Name:  "rootless",
+			Usage: "User and group of the store owner in the format <user>:<group>. If not supplied store will be owned by root.",
+			Value: "",
 		},
 	},
 
@@ -71,7 +77,9 @@ var InitStoreCommand = cli.Command{
 			return cli.NewExitError(err.Error(), 1)
 		}
 
-		uidMappings, err := parseIDMappings(ctx.StringSlice("uid-mapping"))
+		// uidMappings, gidMappings, err := mappingResolver.Resolve(ctx.String("rootless"), "uid-maping...")
+
+		uidMappings, err := idmapping_parser.NewFlagMappingParser(ctx.StringSlice("uid-mapping")).ParseMappings()
 		if err != nil {
 			err = errorspkg.Errorf("parsing uid-mapping: %s", err)
 			logger.Error("parsing-command", err)

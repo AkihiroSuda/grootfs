@@ -56,6 +56,8 @@ type Runner struct {
 	SysCredential syscall.Credential
 
 	ExternaLogDeviceSize int64
+	RootlessUser         string
+	RootlessGroup        string
 }
 
 func (r Runner) StartSubcommand(subcommand string, args ...string) (*gexec.Session, error) {

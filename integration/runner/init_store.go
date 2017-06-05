@@ -29,6 +29,10 @@ func (r Runner) InitStore(spec manager.InitSpec) error {
 		args = append(args, "--external-logdev-size-mb", fmt.Sprintf("%d", r.ExternaLogDeviceSize))
 	}
 
+	if r.RootlessUser != "" && r.RootlessGroup != "" {
+		args = append(args, "--rootless", fmt.Sprintf("%s:%s", r.RootlessUser, r.RootlessGroup))
+	}
+
 	_, err := r.RunSubcommand("init-store", args...)
 	return err
 }

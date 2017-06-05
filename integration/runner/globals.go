@@ -53,6 +53,12 @@ func (r Runner) WithExternalLogDeviceSize(sizeMb int64) Runner {
 	return r
 }
 
+func (r Runner) WithRootless(user, group string) Runner {
+	r.RootlessUser = user
+	r.RootlessGroup = group
+	return r
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Drivers
 ///////////////////////////////////////////////////////////////////////////////

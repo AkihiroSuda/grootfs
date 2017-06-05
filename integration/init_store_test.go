@@ -1,9 +1,11 @@
 package integration_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 
 	"code.cloudfoundry.org/grootfs/groot"
@@ -162,6 +164,49 @@ var _ = Describe("Init Store", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(stat.Sys().(*syscall.Stat_t).Uid).To(Equal(uint32(GrootUID)))
 			Expect(stat.Sys().(*syscall.Stat_t).Gid).To(Equal(uint32(GrootGID)))
+		})
+
+		It("writes the correct namespace.json file", func() {
+			Expect(runner.InitStore(spec)).To(Succeed())
+
+			var namespaces map[string][]string
+			namespaceJsonFile, err := os.Open(filepath.Join(runner.StorePath, "meta/namespace.json"))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(json.NewDecoder(namespaceJsonFile).Decode(&namespaces)).To(Succeed())
+
+			Expect(namespaces["uid-mappings"]).To(ConsistOf("1:100000:65000", fmt.Sprintf("0:%d:1", GrootUID)))
+			Expect(namespaces["gid-mappings"]).To(ConsistOf("1:100000:65000", fmt.Sprintf("0:%d:1", GrootGID)))
+		})
+	})
+
+	PContext("when the rootless flag is provided", func() {
+		BeforeEach(func() {
+			runner = runner.WithRootless("groot", "groot")
+		})
+
+		It("sets the ownership to the user mapped as root", func() {
+			Expect(runner.InitStore(spec)).To(Succeed())
+
+			Expect(runner.StorePath).To(BeADirectory())
+
+			stat, err := os.Stat(runner.StorePath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(stat.Sys().(*syscall.Stat_t).Uid).To(Equal(uint32(GrootUID)))
+			Expect(stat.Sys().(*syscall.Stat_t).Gid).To(Equal(uint32(GrootGID)))
+		})
+
+		It("writes the correct namespace.json file", func() {
+			Expect(runner.InitStore(spec)).To(Succeed())
+
+			var namespaces map[string][]string
+			namespaceJsonFile, err := os.Open(filepath.Join(runner.StorePath, "meta/namespace.json"))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(json.NewDecoder(namespaceJsonFile).Decode(&namespaces)).To(Succeed())
+
+			Expect(namespaces["uid-mappings"]).To(ConsistOf("1:100000:65000", fmt.Sprintf("0:%d:1", GrootUID)))
+			Expect(namespaces["gid-mappings"]).To(ConsistOf("1:100000:65000", fmt.Sprintf("0:%d:1", GrootGID)))
 		})
 	})
 
