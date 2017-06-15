@@ -14,7 +14,6 @@ import (
 
 	"code.cloudfoundry.org/grootfs/groot"
 	"code.cloudfoundry.org/grootfs/store"
-	"code.cloudfoundry.org/grootfs/store/filesystems"
 	quotapkg "code.cloudfoundry.org/grootfs/store/filesystems/overlayxfs/quota"
 	"code.cloudfoundry.org/grootfs/store/image_cloner"
 	"code.cloudfoundry.org/lager"
@@ -77,11 +76,6 @@ func (d *Driver) ValidateFileSystem(logger lager.Logger, path string) error {
 	logger = logger.Session("overlayxfs-validate-filesystem", lager.Data{"path": path})
 	logger.Debug("starting")
 	defer logger.Debug("ending")
-
-	if err := filesystems.CheckFSPath(path, "xfs", "noatime", "nobarrier", "prjquota"); err != nil {
-		logger.Error("validating-filesystem", err)
-		return errorspkg.Wrap(err, "overlay-xfs filesystem validation")
-	}
 
 	return nil
 }
