@@ -14,8 +14,8 @@ import (
 	"code.cloudfoundry.org/grootfs/fetcher/remote"
 	"code.cloudfoundry.org/lager"
 	"github.com/Sirupsen/logrus"
-	"github.com/containers/image/docker"
 	manifestpkg "github.com/containers/image/manifest"
+	"github.com/containers/image/oci/layout"
 	"github.com/containers/image/types"
 	digestpkg "github.com/opencontainers/go-digest"
 	specsv1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -290,7 +290,7 @@ func (s *DockerSource) reference(logger lager.Logger, baseImageURL *url.URL) (ty
 	refString += baseImageURL.Path
 
 	logger.Debug("parsing-reference", lager.Data{"refString": refString})
-	ref, err := docker.ParseReference(refString)
+	ref, err := layout.NewReference(baseImageURL.Path, "latest")
 	if err != nil {
 		return nil, errorspkg.Wrap(err, "parsing url failed")
 	}
