@@ -7,30 +7,31 @@ import (
 
 	"code.cloudfoundry.org/grootfs/fetcher/layer_fetcher"
 	"code.cloudfoundry.org/lager"
+	"github.com/containers/image/types"
 	specsv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type FakeSource struct {
-	ManifestStub        func(logger lager.Logger, baseImageURL *url.URL) (layer_fetcher.Manifest, error)
+	ManifestStub        func(logger lager.Logger, baseImageURL *url.URL) (types.Image, error)
 	manifestMutex       sync.RWMutex
 	manifestArgsForCall []struct {
 		logger       lager.Logger
 		baseImageURL *url.URL
 	}
 	manifestReturns struct {
-		result1 layer_fetcher.Manifest
+		result1 types.Image
 		result2 error
 	}
 	manifestReturnsOnCall map[int]struct {
-		result1 layer_fetcher.Manifest
+		result1 types.Image
 		result2 error
 	}
-	ConfigStub        func(logger lager.Logger, baseImageURL *url.URL, manifest layer_fetcher.Manifest) (specsv1.Image, error)
+	ConfigStub        func(logger lager.Logger, baseImageURL *url.URL, manifest types.Image) (specsv1.Image, error)
 	configMutex       sync.RWMutex
 	configArgsForCall []struct {
 		logger       lager.Logger
 		baseImageURL *url.URL
-		manifest     layer_fetcher.Manifest
+		manifest     types.Image
 	}
 	configReturns struct {
 		result1 specsv1.Image
@@ -61,7 +62,7 @@ type FakeSource struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeSource) Manifest(logger lager.Logger, baseImageURL *url.URL) (layer_fetcher.Manifest, error) {
+func (fake *FakeSource) Manifest(logger lager.Logger, baseImageURL *url.URL) (types.Image, error) {
 	fake.manifestMutex.Lock()
 	ret, specificReturn := fake.manifestReturnsOnCall[len(fake.manifestArgsForCall)]
 	fake.manifestArgsForCall = append(fake.manifestArgsForCall, struct {
@@ -91,35 +92,35 @@ func (fake *FakeSource) ManifestArgsForCall(i int) (lager.Logger, *url.URL) {
 	return fake.manifestArgsForCall[i].logger, fake.manifestArgsForCall[i].baseImageURL
 }
 
-func (fake *FakeSource) ManifestReturns(result1 layer_fetcher.Manifest, result2 error) {
+func (fake *FakeSource) ManifestReturns(result1 types.Image, result2 error) {
 	fake.ManifestStub = nil
 	fake.manifestReturns = struct {
-		result1 layer_fetcher.Manifest
+		result1 types.Image
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeSource) ManifestReturnsOnCall(i int, result1 layer_fetcher.Manifest, result2 error) {
+func (fake *FakeSource) ManifestReturnsOnCall(i int, result1 types.Image, result2 error) {
 	fake.ManifestStub = nil
 	if fake.manifestReturnsOnCall == nil {
 		fake.manifestReturnsOnCall = make(map[int]struct {
-			result1 layer_fetcher.Manifest
+			result1 types.Image
 			result2 error
 		})
 	}
 	fake.manifestReturnsOnCall[i] = struct {
-		result1 layer_fetcher.Manifest
+		result1 types.Image
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeSource) Config(logger lager.Logger, baseImageURL *url.URL, manifest layer_fetcher.Manifest) (specsv1.Image, error) {
+func (fake *FakeSource) Config(logger lager.Logger, baseImageURL *url.URL, manifest types.Image) (specsv1.Image, error) {
 	fake.configMutex.Lock()
 	ret, specificReturn := fake.configReturnsOnCall[len(fake.configArgsForCall)]
 	fake.configArgsForCall = append(fake.configArgsForCall, struct {
 		logger       lager.Logger
 		baseImageURL *url.URL
-		manifest     layer_fetcher.Manifest
+		manifest     types.Image
 	}{logger, baseImageURL, manifest})
 	fake.recordInvocation("Config", []interface{}{logger, baseImageURL, manifest})
 	fake.configMutex.Unlock()
@@ -138,7 +139,7 @@ func (fake *FakeSource) ConfigCallCount() int {
 	return len(fake.configArgsForCall)
 }
 
-func (fake *FakeSource) ConfigArgsForCall(i int) (lager.Logger, *url.URL, layer_fetcher.Manifest) {
+func (fake *FakeSource) ConfigArgsForCall(i int) (lager.Logger, *url.URL, types.Image) {
 	fake.configMutex.RLock()
 	defer fake.configMutex.RUnlock()
 	return fake.configArgsForCall[i].logger, fake.configArgsForCall[i].baseImageURL, fake.configArgsForCall[i].manifest

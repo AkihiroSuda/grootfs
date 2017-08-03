@@ -512,7 +512,7 @@ var _ = Describe("Create with remote DOCKER images", func() {
 			})
 		})
 
-		Context("when the image has a version 1 manifest schema", func() {
+		FContext("when the image has a version 1 manifest schema", func() {
 			BeforeEach(func() {
 				baseImageURL = "docker:///cfgarden/empty:schemaV1"
 			})

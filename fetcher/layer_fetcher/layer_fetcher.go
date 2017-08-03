@@ -13,14 +13,15 @@ import (
 	"code.cloudfoundry.org/grootfs/fetcher"
 	"code.cloudfoundry.org/lager"
 
+	"github.com/containers/image/types"
 	specsv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	errorspkg "github.com/pkg/errors"
 )
 
 //go:generate counterfeiter . Source
 type Source interface {
-	Manifest(logger lager.Logger, baseImageURL *url.URL) (Manifest, error)
-	Config(logger lager.Logger, baseImageURL *url.URL, manifest Manifest) (specsv1.Image, error)
+	Manifest(logger lager.Logger, baseImageURL *url.URL) (types.Image, error)
+	Config(logger lager.Logger, baseImageURL *url.URL, manifest types.Image) (specsv1.Image, error)
 	Blob(logger lager.Logger, baseImageURL *url.URL, digest string) (string, int64, error)
 }
 
@@ -49,7 +50,7 @@ func (f *LayerFetcher) BaseImageInfo(logger lager.Logger, baseImageURL *url.URL)
 	logger.Debug("image-manifest", lager.Data{"manifest": manifest})
 
 	logger.Debug("fetching-image-config")
-	contents, _, err := f.cacheDriver.FetchBlob(logger, manifest.ConfigCacheKey,
+	contents, _, err := f.cacheDriver.FetchBlob(logger, manifest.ConfigInfo().Digest.String(),
 		func(logger lager.Logger) ([]byte, int64, error) {
 			config, err := f.source.Config(logger, baseImageURL, manifest)
 			if err != nil {
@@ -101,12 +102,12 @@ func (f *LayerFetcher) StreamBlob(logger lager.Logger, baseImageURL *url.URL, so
 }
 
 func (f *LayerFetcher) createLayersDigest(logger lager.Logger,
-	manifest Manifest, config specsv1.Image,
+	manifest types.Image, config specsv1.Image,
 ) []base_image_puller.LayerDigest {
 	layersDigest := []base_image_puller.LayerDigest{}
 
 	var parentChainID string
-	for i, layer := range manifest.Layers {
+	for i, layer := range manifest.LayerInfos() {
 		if i == 0 {
 			parentChainID = ""
 		}
@@ -114,7 +115,7 @@ func (f *LayerFetcher) createLayersDigest(logger lager.Logger,
 		diffID := config.RootFS.DiffIDs[i]
 		chainID := f.chainID(diffID.String(), parentChainID)
 		layersDigest = append(layersDigest, base_image_puller.LayerDigest{
-			BlobID:        layer.BlobID,
+			BlobID:        layer.Digest.String(),
 			Size:          layer.Size,
 			ChainID:       chainID,
 			ParentChainID: parentChainID,
