@@ -19,7 +19,7 @@ import (
 var _ = Describe("Layer source: OCI", func() {
 	var (
 		trustedRegistries []string
-		layerSource       *source.LayerSource
+		layerSource       source.LayerSource
 
 		logger       *lagertest.TestLogger
 		baseImageURL *url.URL

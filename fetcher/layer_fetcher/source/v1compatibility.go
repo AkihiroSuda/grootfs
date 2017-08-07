@@ -1,13 +1,9 @@
 package source // import "code.cloudfoundry.org/grootfs/fetcher/layer_fetcher/source"
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/containers/image/docker/reference"
 	manifestpkg "github.com/containers/image/manifest"
 	"github.com/containers/image/types"
-	digest "github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -18,22 +14,19 @@ type image struct {
 func v1CompatibleImage(imageToWrap types.Image) (types.Image, error) {
 	imageWrapper := &image{imageToWrap}
 
-	x, _, _ := imageWrapper.wrappedImage.Manifest()
-	fmt.Fprintf(os.Stderr, "----> %#v\n\n", string(x))
-
 	_, mimetype, _ := imageWrapper.wrappedImage.Manifest()
 
 	if mimetype == manifestpkg.DockerV2Schema1MediaType || mimetype == manifestpkg.DockerV2Schema1SignedMediaType {
-		diffIds := []digest.Digest{}
-		for _, layer := range imageWrapper.wrappedImage.LayerInfos() {
-			diffIds = append(diffIds, layer.Digest)
-		}
+		// diffIds := []digest.Digest{}
+		// for _, layer := range imageWrapper.wrappedImage.LayerInfos() {
+		// 	diffIds = append(diffIds, layer.Digest)
+		// }
 
 		options := types.ManifestUpdateOptions{
 			ManifestMIMEType: manifestpkg.DockerV2Schema2MediaType,
-			InformationOnly: types.ManifestUpdateInformation{
-				LayerDiffIDs: diffIds,
-			},
+			// InformationOnly: types.ManifestUpdateInformation{
+			// 	LayerDiffIDs: diffIds,
+			// },
 		}
 
 		var err error
@@ -47,7 +40,6 @@ func v1CompatibleImage(imageToWrap types.Image) (types.Image, error) {
 }
 
 func (i *image) ConfigInfo() types.BlobInfo {
-	_, _ = i.wrappedImage.ConfigBlob()
 	return i.wrappedImage.ConfigInfo()
 }
 

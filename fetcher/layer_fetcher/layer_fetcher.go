@@ -3,7 +3,6 @@ package layer_fetcher // import "code.cloudfoundry.org/grootfs/fetcher/layer_fet
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/containers/image/types"
 	specsv1 "github.com/opencontainers/image-spec/specs-go/v1"
-	errorspkg "github.com/pkg/errors"
 )
 
 //go:generate counterfeiter . Source
@@ -50,28 +48,10 @@ func (f *LayerFetcher) BaseImageInfo(logger lager.Logger, baseImageURL *url.URL)
 	logger.Debug("image-manifest", lager.Data{"manifest": manifest})
 
 	logger.Debug("fetching-image-config")
-	contents, _, err := f.cacheDriver.FetchBlob(logger, manifest.ConfigInfo().Digest,
-		func(logger lager.Logger) ([]byte, int64, error) {
-			config, err := f.source.Config(logger, baseImageURL, manifest)
-			if err != nil {
-				return nil, 0, err
-			}
-
-			configJSON, err := json.Marshal(config)
-			if err != nil {
-				return nil, 0, errorspkg.Wrap(err, "encoding config to JSON")
-			}
-
-			return configJSON, 0, nil
-		},
-	)
+	var config specsv1.Image
+	config, err = f.source.Config(logger, baseImageURL, manifest)
 	if err != nil {
 		return base_image_puller.BaseImageInfo{}, err
-	}
-
-	var config specsv1.Image
-	if err := json.Unmarshal(contents, &config); err != nil {
-		return base_image_puller.BaseImageInfo{}, errorspkg.Wrap(err, "decoding config from JSON")
 	}
 	logger.Debug("image-config", lager.Data{"config": config})
 

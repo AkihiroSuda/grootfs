@@ -30,8 +30,8 @@ type LayerSource struct {
 	password          string
 }
 
-func NewLayerSource(username, password string, trustedRegistries []string) *LayerSource {
-	return &LayerSource{
+func NewLayerSource(username, password string, trustedRegistries []string) LayerSource {
+	return LayerSource{
 		username:          username,
 		password:          password,
 		trustedRegistries: trustedRegistries,
@@ -138,6 +138,9 @@ func (s *LayerSource) checkCheckSum(logger lager.Logger, data io.Reader, digest 
 }
 
 func (s *LayerSource) skipTLSValidation(baseImageURL *url.URL) bool {
+	fmt.Println("BaseImageURL", baseImageURL)
+	fmt.Println("Source:", s)
+	fmt.Printf("TrustedRegistries: %#v\n", s.trustedRegistries)
 	for _, trustedRegistry := range s.trustedRegistries {
 		if baseImageURL.Host == trustedRegistry {
 			return true
@@ -170,6 +173,7 @@ func (s *LayerSource) image(logger lager.Logger, baseImageURL *url.URL) (types.I
 		return nil, err
 	}
 
+	logger.Debug("CREDS", lager.Data{"username": s.username, "password": s.password})
 	skipTLSValidation := s.skipTLSValidation(baseImageURL)
 	logger.Debug("new-image", lager.Data{"skipTLSValidation": skipTLSValidation})
 	img, err := ref.NewImage(&types.SystemContext{
@@ -180,7 +184,7 @@ func (s *LayerSource) image(logger lager.Logger, baseImageURL *url.URL) (types.I
 		},
 	})
 	if err != nil {
-		return nil, errorspkg.Wrap(err, "creating reference")
+		return nil, errorspkg.Wrap(err, "creating reference two")
 	}
 
 	return img, nil
@@ -202,7 +206,7 @@ func (s *LayerSource) imageSource(logger lager.Logger, baseImageURL *url.URL) (t
 		},
 	}, preferedMediaTypes())
 	if err != nil {
-		return nil, errorspkg.Wrap(err, "creating reference")
+		return nil, errorspkg.Wrap(err, "creating reference one")
 	}
 	logger.Debug("new-image", lager.Data{"skipTLSValidation": skipTLSValidation})
 
