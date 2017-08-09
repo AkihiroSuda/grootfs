@@ -23,7 +23,7 @@ import (
 	specsv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-var _ = FDescribe("Create with OCI images", func() {
+var _ = Describe("Create with OCI images", func() {
 	BeforeEach(func() {
 		integration.SkipIfNonRoot(GrootfsTestUid)
 	})
