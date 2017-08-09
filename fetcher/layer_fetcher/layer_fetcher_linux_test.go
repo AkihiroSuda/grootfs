@@ -3,7 +3,6 @@ package layer_fetcher_test
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"net/url"
@@ -11,11 +10,8 @@ import (
 
 	"code.cloudfoundry.org/grootfs/base_image_puller"
 
-	fetcherpkg "code.cloudfoundry.org/grootfs/fetcher"
-	"code.cloudfoundry.org/grootfs/fetcher/fetcherfakes"
 	"code.cloudfoundry.org/grootfs/fetcher/layer_fetcher"
 	"code.cloudfoundry.org/grootfs/fetcher/layer_fetcher/layer_fetcherfakes"
-	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 	"github.com/containers/image/types"
 	. "github.com/onsi/ginkgo"
@@ -26,7 +22,6 @@ import (
 
 var _ = Describe("LayerFetcher", func() {
 	var (
-		fakeCacheDriver   *fetcherfakes.FakeCacheDriver
 		fakeSource        *layer_fetcherfakes.FakeSource
 		fetcher           *layer_fetcher.LayerFetcher
 		logger            *lagertest.TestLogger
@@ -36,7 +31,6 @@ var _ = Describe("LayerFetcher", func() {
 
 	BeforeEach(func() {
 		fakeSource = new(layer_fetcherfakes.FakeSource)
-		fakeCacheDriver = new(fetcherfakes.FakeCacheDriver)
 
 		gzipBuffer := bytes.NewBuffer([]byte{})
 		gzipWriter := gzip.NewWriter(gzipBuffer)
@@ -46,19 +40,7 @@ var _ = Describe("LayerFetcher", func() {
 		gzipedBlobContent, err = ioutil.ReadAll(gzipBuffer)
 		Expect(err).NotTo(HaveOccurred())
 
-		// by default, the cache driver does not do any caching
-		fakeCacheDriver.FetchBlobStub = func(logger lager.Logger, id digestpkg.Digest,
-			remoteBlobFunc fetcherpkg.RemoteBlobFunc,
-		) ([]byte, int64, error) {
-			contents, size, err := remoteBlobFunc(logger)
-			if err != nil {
-				return nil, 0, err
-			}
-
-			return contents, size, nil
-		}
-
-		fetcher = layer_fetcher.NewLayerFetcher(fakeSource, fakeCacheDriver)
+		fetcher = layer_fetcher.NewLayerFetcher(fakeSource)
 
 		logger = lagertest.NewTestLogger("test-layer-fetcher")
 		baseImageURL, err = url.Parse("docker:///cfgarden/empty:v0.1.1")
@@ -168,78 +150,6 @@ var _ = Describe("LayerFetcher", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(baseImageInfo.Config).To(Equal(expectedConfig))
-		})
-
-		XContext("when the config is in the cache", func() {
-			var (
-				expectedConfig specsv1.Image
-				configContents []byte
-			)
-
-			BeforeEach(func() {
-				timestamp := time.Time{}.In(time.UTC)
-				expectedConfig = specsv1.Image{
-					Created: &timestamp,
-					RootFS: specsv1.RootFS{
-						DiffIDs: []digestpkg.Digest{
-							digestpkg.NewDigestFromHex("sha256", "afe200c63655576eaa5cabe036a2c09920d6aee67653ae75a9d35e0ec27205a5"),
-							digestpkg.NewDigestFromHex("sha256", "d7c6a5f0d9a15779521094fa5eaf026b719984fb4bfe8e0012bd1da1b62615b0"),
-						},
-					},
-				}
-
-				var err error
-				configContents, err = json.Marshal(expectedConfig)
-				Expect(err).NotTo(HaveOccurred())
-				fakeCacheDriver.FetchBlobReturns(configContents, 0, nil)
-			})
-
-			JustBeforeEach(func() {
-				fakeCacheDriver.FetchBlobReturns(configContents, 0, nil)
-			})
-
-			XIt("calls the cache driver", func() {
-				// manifest := layer_fetcher.Manifest{
-				// 	ConfigCacheKey: "sha256:cached-config",
-				// }
-				// fakeSource.ManifestReturns(manifest, nil)
-
-				_, err := fetcher.BaseImageInfo(logger, baseImageURL)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(fakeCacheDriver.FetchBlobCallCount()).To(Equal(1))
-				_, id, _ := fakeCacheDriver.FetchBlobArgsForCall(0)
-				Expect(id).To(Equal("sha256:cached-config"))
-			})
-
-			It("returns the correct image config", func() {
-				baseImageInfo, err := fetcher.BaseImageInfo(logger, baseImageURL)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(baseImageInfo.Config).To(Equal(expectedConfig))
-			})
-
-			Context("when the cache returns a corrupted config", func() {
-				BeforeEach(func() {
-					configContents = []byte("{invalid: json")
-				})
-
-				It("returns an error", func() {
-					_, err := fetcher.BaseImageInfo(logger, baseImageURL)
-					Expect(err).To(MatchError(ContainSubstring("decoding config from JSON")))
-				})
-			})
-		})
-
-		XContext("when the cache fails", func() {
-			BeforeEach(func() {
-				fakeCacheDriver.FetchBlobReturns(nil, 0, errors.New("failed to return"))
-			})
-
-			It("returns the error", func() {
-				_, err := fetcher.BaseImageInfo(logger, baseImageURL)
-				Expect(err).To(MatchError(ContainSubstring("failed to return")))
-			})
 		})
 	})
 

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/grootfs/base_image_puller"
-	"code.cloudfoundry.org/grootfs/fetcher"
 	"code.cloudfoundry.org/lager"
 
 	"github.com/containers/image/types"
@@ -30,14 +29,12 @@ type Source interface {
 }
 
 type LayerFetcher struct {
-	source      Source
-	cacheDriver fetcher.CacheDriver
+	source Source
 }
 
-func NewLayerFetcher(source Source, cacheDriver fetcher.CacheDriver) *LayerFetcher {
+func NewLayerFetcher(source Source) *LayerFetcher {
 	return &LayerFetcher{
-		source:      source,
-		cacheDriver: cacheDriver,
+		source: source,
 	}
 }
 
