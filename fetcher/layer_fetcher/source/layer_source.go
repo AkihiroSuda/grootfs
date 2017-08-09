@@ -49,20 +49,7 @@ func (s *LayerSource) Manifest(logger lager.Logger, baseImageURL *url.URL) (type
 		return nil, errorspkg.Wrap(err, "fetching image reference")
 	}
 
-	return v1CompatibleImage(img)
-}
-
-func (s *LayerSource) Config(logger lager.Logger, baseImageURL *url.URL, manifest types.Image) (specsv1.Image, error) {
-	logger = logger.Session("fetching-image-config", lager.Data{
-		"baseImageURL": baseImageURL,
-		"configDigest": manifest.ConfigInfo().Digest,
-	})
-	logger.Info("starting")
-	defer logger.Info("ending")
-
-	config, err := manifest.OCIConfig()
-
-	return *config, err
+	return convertImage(img)
 }
 
 func (s *LayerSource) Blob(logger lager.Logger, baseImageURL *url.URL, digest string) (string, int64, error) {
@@ -138,9 +125,6 @@ func (s *LayerSource) checkCheckSum(logger lager.Logger, data io.Reader, digest 
 }
 
 func (s *LayerSource) skipTLSValidation(baseImageURL *url.URL) bool {
-	fmt.Println("BaseImageURL", baseImageURL)
-	fmt.Println("Source:", s)
-	fmt.Printf("TrustedRegistries: %#v\n", s.trustedRegistries)
 	for _, trustedRegistry := range s.trustedRegistries {
 		if baseImageURL.Host == trustedRegistry {
 			return true
@@ -173,7 +157,6 @@ func (s *LayerSource) image(logger lager.Logger, baseImageURL *url.URL) (types.I
 		return nil, err
 	}
 
-	logger.Debug("CREDS", lager.Data{"username": s.username, "password": s.password})
 	skipTLSValidation := s.skipTLSValidation(baseImageURL)
 	logger.Debug("new-image", lager.Data{"skipTLSValidation": skipTLSValidation})
 	img, err := ref.NewImage(&types.SystemContext{
@@ -184,10 +167,34 @@ func (s *LayerSource) image(logger lager.Logger, baseImageURL *url.URL) (types.I
 		},
 	})
 	if err != nil {
-		return nil, errorspkg.Wrap(err, "creating reference two")
+		return nil, errorspkg.Wrap(err, "creating image")
 	}
 
 	return img, nil
+}
+
+func convertImage(imageToWrap types.Image) (convertedImage types.Image, err error) {
+	convertedImage = imageToWrap
+
+	_, mimetype, _ := imageToWrap.Manifest()
+
+	if mimetype == manifestpkg.DockerV2Schema1MediaType || mimetype == manifestpkg.DockerV2Schema1SignedMediaType {
+		// diffIds := []digest.Digest{}
+		// for _, layer := range imageWrapper.wrappedImage.LayerInfos() {
+		// 	diffIds = append(diffIds, layer.Digest)
+		// }
+
+		options := types.ManifestUpdateOptions{
+			ManifestMIMEType: manifestpkg.DockerV2Schema2MediaType,
+			// InformationOnly: types.ManifestUpdateInformation{
+			// 	LayerDiffIDs: diffIds,
+			// },
+		}
+
+		convertedImage, err = imageToWrap.UpdatedImage(options)
+	}
+
+	return
 }
 
 func (s *LayerSource) imageSource(logger lager.Logger, baseImageURL *url.URL) (types.ImageSource, error) {
@@ -206,9 +213,9 @@ func (s *LayerSource) imageSource(logger lager.Logger, baseImageURL *url.URL) (t
 		},
 	}, preferedMediaTypes())
 	if err != nil {
-		return nil, errorspkg.Wrap(err, "creating reference one")
+		return nil, errorspkg.Wrap(err, "creating image source")
 	}
-	logger.Debug("new-image", lager.Data{"skipTLSValidation": skipTLSValidation})
+	logger.Debug("new-image-source", lager.Data{"skipTLSValidation": skipTLSValidation})
 
 	return imgSrc, nil
 }

@@ -74,6 +74,18 @@ var _ = Describe("Layer source: OCI", func() {
 			Expect(manifest.LayerInfos()[1]).To(Equal(expectedLayersDigest[1]))
 		})
 
+		It("contains the config", func() {
+			manifest, err := layerSource.Manifest(logger, baseImageURL)
+			Expect(err).NotTo(HaveOccurred())
+
+			config, err := manifest.OCIConfig()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(config.RootFS.DiffIDs).To(HaveLen(2))
+			Expect(config.RootFS.DiffIDs[0]).To(Equal(expectedDiffIds[0]))
+			Expect(config.RootFS.DiffIDs[1]).To(Equal(expectedDiffIds[1]))
+		})
+
 		Context("when the image url is invalid", func() {
 			It("returns an error", func() {
 				baseImageURL, err := url.Parse("oci://///cfgarden/empty:v0.1.0")
@@ -104,27 +116,8 @@ var _ = Describe("Layer source: OCI", func() {
 				Expect(logger).To(gbytes.Say("parsing url failed: lstat /cfgarden: no such file or directory"))
 			})
 		})
-	})
 
-	Describe("Config", func() {
-		var manifest types.Image
-
-		BeforeEach(func() {
-			var err error
-			manifest, err = layerSource.Manifest(logger, baseImageURL)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("fetches the config", func() {
-			config, err := layerSource.Config(logger, baseImageURL, manifest)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(config.RootFS.DiffIDs).To(HaveLen(2))
-			Expect(config.RootFS.DiffIDs[0]).To(Equal(expectedDiffIds[0]))
-			Expect(config.RootFS.DiffIDs[1]).To(Equal(expectedDiffIds[1]))
-		})
-
-		Context("when the image or the config blob does not exist", func() {
+		Context("when the config blob does not exist", func() {
 			BeforeEach(func() {
 				var err error
 				baseImageURL, err = url.Parse(fmt.Sprintf("oci:///%s/../../../integration/assets/oci-test-image/invalid-config:latest", workDir))
@@ -132,21 +125,22 @@ var _ = Describe("Layer source: OCI", func() {
 			})
 
 			It("retuns an error", func() {
-				_, err := layerSource.Config(logger, baseImageURL, manifest)
-				Expect(err).To(MatchError(ContainSubstring("fetching config blob")))
-			})
-		})
-
-		Context("when the image url is invalid", func() {
-			It("returns an error", func() {
-				baseImageURL, err := url.Parse("oci://////cfgarden/empty:v0.1.0")
-				Expect(err).NotTo(HaveOccurred())
-
-				_, err = layerSource.Config(logger, baseImageURL, manifest)
-				Expect(err).To(MatchError(ContainSubstring("parsing url failed")))
+				_, err := layerSource.Manifest(logger, baseImageURL)
+				Expect(err).To(MatchError(ContainSubstring("creating image")))
 			})
 		})
 	})
+
+	// Describe("Config", func() {
+	// 	var manifest source.Manifest
+
+	// 	JustBeforeEach(func() {
+	// 		var err error
+	// 		manifest, err = layerSource.Manifest(logger, baseImageURL)
+	// 		Expect(err).NotTo(HaveOccurred())
+	// 	})
+
+	// })
 
 	Describe("Blob", func() {
 		It("downloads a blob", func() {

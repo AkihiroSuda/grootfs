@@ -17,10 +17,9 @@ import (
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	digestpkg "github.com/opencontainers/go-digest"
-	errorspkg "github.com/pkg/errors"
 )
 
-var _ = FDescribe("Layer source: Docker", func() {
+var _ = Describe("Layer source: Docker", func() {
 	var (
 		trustedRegistries []string
 		layerSource       source.LayerSource
@@ -174,7 +173,7 @@ var _ = FDescribe("Layer source: Docker", func() {
 		It("fetches the config", func() {
 			manifest, err := layerSource.Manifest(logger, baseImageURL)
 			Expect(err).NotTo(HaveOccurred())
-			config, err := layerSource.Config(logger, baseImageURL, manifest)
+			config, err := manifest.OCIConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(config.RootFS.DiffIDs).To(HaveLen(2))
@@ -183,7 +182,7 @@ var _ = FDescribe("Layer source: Docker", func() {
 		})
 
 		Context("when the image is private", func() {
-			var manifest types.Image
+			var manifest source.Manifest
 
 			BeforeEach(func() {
 				var err error
@@ -200,7 +199,7 @@ var _ = FDescribe("Layer source: Docker", func() {
 
 			Context("when the correct credentials are provided", func() {
 				It("fetches the config", func() {
-					config, err := layerSource.Config(logger, baseImageURL, manifest)
+					config, err := manifest.OCIConfig()
 					Expect(err).NotTo(HaveOccurred())
 
 					expectedDiffIds = []digestpkg.Digest{
@@ -211,17 +210,6 @@ var _ = FDescribe("Layer source: Docker", func() {
 					Expect(config.RootFS.DiffIDs).To(HaveLen(2))
 					Expect(config.RootFS.DiffIDs[0]).To(Equal(expectedDiffIds[0]))
 					Expect(config.RootFS.DiffIDs[1]).To(Equal(expectedDiffIds[1]))
-				})
-			})
-
-			Context("when invalid credentials are provided", func() {
-				JustBeforeEach(func() {
-					layerSource = source.NewLayerSource("", "", trustedRegistries)
-				})
-
-				It("retuns an error", func() {
-					_, err := layerSource.Config(logger, baseImageURL, manifest)
-					Expect(err).To(MatchError(ContainSubstring("fetching config reference")))
 				})
 			})
 		})
@@ -246,7 +234,7 @@ var _ = FDescribe("Layer source: Docker", func() {
 			It("fetches the config", func() {
 				manifest, err := layerSource.Manifest(logger, baseImageURL)
 				Expect(err).NotTo(HaveOccurred())
-				config, err := layerSource.Config(logger, baseImageURL, manifest)
+				config, err := manifest.OCIConfig()
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(config.RootFS.DiffIDs).To(HaveLen(8))
@@ -313,13 +301,6 @@ var _ = FDescribe("Layer source: Docker", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("fails to fetch the Config", func() {
-			_, err := layerSource.Config(logger, baseImageURL, nil)
-			e := errorspkg.Cause(err)
-			_, ok := e.(*url.Error)
-			Expect(ok).To(BeTrue())
-		})
-
 		Context("when the private registry is whitelisted", func() {
 			BeforeEach(func() {
 				trustedRegistries = []string{fakeRegistry.Addr()}
@@ -338,7 +319,7 @@ var _ = FDescribe("Layer source: Docker", func() {
 				manifest, err := layerSource.Manifest(logger, baseImageURL)
 				Expect(err).NotTo(HaveOccurred())
 
-				config, err := layerSource.Config(logger, baseImageURL, manifest)
+				config, err := manifest.OCIConfig()
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(config.RootFS.DiffIDs).To(HaveLen(2))
@@ -365,8 +346,6 @@ var _ = FDescribe("Layer source: Docker", func() {
 			})
 
 			Context("when using private images", func() {
-				var manifest types.Image
-
 				BeforeEach(func() {
 					var err error
 					baseImageURL, err = url.Parse("docker:///cfgarden/private")
@@ -374,9 +353,6 @@ var _ = FDescribe("Layer source: Docker", func() {
 
 					expectedLayersDigest[0].Digest = "sha256:dabca1fccc91489bf9914945b95582f16d6090f423174641710083d6651db4a4"
 					expectedLayersDigest[1].Digest = "sha256:48ce60c2de08a424e10810c41ec2f00916cfd0f12333e96eb4363eb63723be87"
-
-					manifest, err = layerSource.Manifest(logger, baseImageURL)
-					Expect(err).NotTo(HaveOccurred())
 
 					expectedDiffIds = []digestpkg.Digest{
 						digestpkg.NewDigestFromHex("sha256", "780016ca8250bcbed0cbcf7b023c75550583de26629e135a1e31c0bf91fba296"),
@@ -398,7 +374,10 @@ var _ = FDescribe("Layer source: Docker", func() {
 				})
 
 				It("fetches the config", func() {
-					config, err := layerSource.Config(logger, baseImageURL, manifest)
+					manifest, err := layerSource.Manifest(logger, baseImageURL)
+					Expect(err).NotTo(HaveOccurred())
+
+					config, err := manifest.OCIConfig()
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(config.RootFS.DiffIDs).To(HaveLen(2))

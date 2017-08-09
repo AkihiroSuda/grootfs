@@ -16,10 +16,16 @@ import (
 	specsv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
+//go:generate counterfeiter . Manifest
 //go:generate counterfeiter . Source
+
+type Manifest interface {
+	OCIConfig() (specsv1.Image, error)
+	LayerInfos() []types.BlobInfo
+}
+
 type Source interface {
-	Manifest(logger lager.Logger, baseImageURL *url.URL) (types.Image, error)
-	Config(logger lager.Logger, baseImageURL *url.URL, image types.Image) (specsv1.Image, error)
+	Manifest(logger lager.Logger, baseImageURL *url.URL) (Manifest, error)
 	Blob(logger lager.Logger, baseImageURL *url.URL, digest string) (string, int64, error)
 }
 
@@ -49,7 +55,7 @@ func (f *LayerFetcher) BaseImageInfo(logger lager.Logger, baseImageURL *url.URL)
 
 	logger.Debug("fetching-image-config")
 	var config specsv1.Image
-	config, err = f.source.Config(logger, baseImageURL, manifest)
+	config, err = manifest.OCIConfig()
 	if err != nil {
 		return base_image_puller.BaseImageInfo{}, err
 	}
@@ -81,8 +87,10 @@ func (f *LayerFetcher) StreamBlob(logger lager.Logger, baseImageURL *url.URL, so
 	return blobReader, size, nil
 }
 
-func (f *LayerFetcher) createLayersDigest(logger lager.Logger,
-	image types.Image, config specsv1.Image,
+func (f *LayerFetcher) createLayersDigest(
+	logger lager.Logger,
+	image Manifest,
+	config specsv1.Image,
 ) []base_image_puller.LayerDigest {
 	layersDigest := []base_image_puller.LayerDigest{}
 

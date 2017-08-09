@@ -87,21 +87,24 @@ var _ = Describe("LayerFetcher", func() {
 		})
 
 		XIt("returns the correct list of layer digests", func() {
-			// manifest := layer_fetcher.Manifest{
-			// 	Layers: []layer_fetcher.Layer{
-			// 		layer_fetcher.Layer{BlobID: "sha256:47e3dd80d678c83c50cb133f4cf20e94d088f890679716c8b763418f55827a58", Size: 1024},
-			// 		layer_fetcher.Layer{BlobID: "sha256:7f2760e7451ce455121932b178501d60e651f000c3ab3bc12ae5d1f57614cc76", Size: 2048},
-			// 	},
-			// }
-			// fakeSource.ManifestReturns(manifest, nil)
-			fakeSource.ConfigReturns(specsv1.Image{
-				RootFS: specsv1.RootFS{
-					DiffIDs: []digestpkg.Digest{
-						digestpkg.NewDigestFromHex("sha256", "afe200c63655576eaa5cabe036a2c09920d6aee67653ae75a9d35e0ec27205a5"),
-						digestpkg.NewDigestFromHex("sha256", "d7c6a5f0d9a15779521094fa5eaf026b719984fb4bfe8e0012bd1da1b62615b0"),
-					},
+			manifest := &layer_fetcherfakes.FakeManifest{}
+			manifest.OCIConfigReq
+
+			manifest := layer_fetcher.Manifest{
+				Layers: []layer_fetcher.Layer{
+					layer_fetcher.Layer{BlobID: "sha256:47e3dd80d678c83c50cb133f4cf20e94d088f890679716c8b763418f55827a58", Size: 1024},
+					layer_fetcher.Layer{BlobID: "sha256:7f2760e7451ce455121932b178501d60e651f000c3ab3bc12ae5d1f57614cc76", Size: 2048},
 				},
-			}, nil)
+			}
+			fakeSource.ManifestReturns(manifest, nil)
+			// fakeSource.ConfigReturns(specsv1.Image{
+			// 	RootFS: specsv1.RootFS{
+			// 		DiffIDs: []digestpkg.Digest{
+			// 			digestpkg.NewDigestFromHex("sha256", "afe200c63655576eaa5cabe036a2c09920d6aee67653ae75a9d35e0ec27205a5"),
+			// 			digestpkg.NewDigestFromHex("sha256", "d7c6a5f0d9a15779521094fa5eaf026b719984fb4bfe8e0012bd1da1b62615b0"),
+			// 		},
+			// 	},
+			// }, nil)
 
 			baseImageURL, err := url.Parse("docker:///cfgarden/empty:v0.1.1")
 			Expect(err).NotTo(HaveOccurred())
