@@ -51,7 +51,6 @@ func (f *LayerFetcher) BaseImageInfo(logger lager.Logger, baseImageURL *url.URL)
 	if err != nil {
 		return base_image_puller.BaseImageInfo{}, err
 	}
-	logger.Debug("image-manifest", lager.Data{"manifest": manifest})
 
 	logger.Debug("fetching-image-config")
 	var config specsv1.Image
