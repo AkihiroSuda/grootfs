@@ -9,11 +9,11 @@ import (
 )
 
 type FakeRootFSConfigurer struct {
-	ConfigureStub        func(rootFSPath string, baseImage specsv1.Image) error
+	ConfigureStub        func(rootFSPath string, baseImage *specsv1.Image) error
 	configureMutex       sync.RWMutex
 	configureArgsForCall []struct {
 		rootFSPath string
-		baseImage  specsv1.Image
+		baseImage  *specsv1.Image
 	}
 	configureReturns struct {
 		result1 error
@@ -22,11 +22,11 @@ type FakeRootFSConfigurer struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeRootFSConfigurer) Configure(rootFSPath string, baseImage specsv1.Image) error {
+func (fake *FakeRootFSConfigurer) Configure(rootFSPath string, baseImage *specsv1.Image) error {
 	fake.configureMutex.Lock()
 	fake.configureArgsForCall = append(fake.configureArgsForCall, struct {
 		rootFSPath string
-		baseImage  specsv1.Image
+		baseImage  *specsv1.Image
 	}{rootFSPath, baseImage})
 	fake.recordInvocation("Configure", []interface{}{rootFSPath, baseImage})
 	fake.configureMutex.Unlock()
@@ -43,7 +43,7 @@ func (fake *FakeRootFSConfigurer) ConfigureCallCount() int {
 	return len(fake.configureArgsForCall)
 }
 
-func (fake *FakeRootFSConfigurer) ConfigureArgsForCall(i int) (string, specsv1.Image) {
+func (fake *FakeRootFSConfigurer) ConfigureArgsForCall(i int) (string, *specsv1.Image) {
 	fake.configureMutex.RLock()
 	defer fake.configureMutex.RUnlock()
 	return fake.configureArgsForCall[i].rootFSPath, fake.configureArgsForCall[i].baseImage

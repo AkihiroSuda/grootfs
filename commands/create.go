@@ -151,7 +151,7 @@ var CreateCommand = cli.Command{
 		layerSource := source.NewLayerSource(ctx.String("username"), ctx.String("password"), cfg.Create.InsecureRegistries)
 
 		cacheDriver := cache_driver.NewCacheDriver(storePath)
-		layerFetcher := layer_fetcher.NewLayerFetcher(layerSource)
+		layerFetcher := layer_fetcher.NewLayerFetcher(&layerSource)
 
 		tarFetcher := tar_fetcher.NewTarFetcher()
 
