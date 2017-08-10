@@ -80,7 +80,7 @@ var _ = Describe("Layer source: Docker", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			XIt("fetches the manifest", func() {
+			It("fetches the manifest", func() {
 				manifest, err := layerSource.Manifest(logger, baseImageURL)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -182,7 +182,7 @@ var _ = Describe("Layer source: Docker", func() {
 		})
 
 		Context("when the image is private", func() {
-			var manifest source.Manifest
+			var manifest types.Image
 
 			BeforeEach(func() {
 				var err error
@@ -224,7 +224,7 @@ var _ = Describe("Layer source: Docker", func() {
 			})
 		})
 
-		XContext("when the image schema version is 1", func() {
+		Context("when the image schema version is 1", func() {
 			BeforeEach(func() {
 				var err error
 				baseImageURL, err = url.Parse("docker:///nginx:1.9")
@@ -238,14 +238,14 @@ var _ = Describe("Layer source: Docker", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(config.RootFS.DiffIDs).To(HaveLen(8))
-				Expect(config.RootFS.DiffIDs[0]).To(Equal(digestpkg.NewDigestFromHex("sha256", "ab998debe217fc9749dba7168a9e4910c1e23f839fb902358cee96c3b7f4585c")))
-				Expect(config.RootFS.DiffIDs[1]).To(Equal(digestpkg.NewDigestFromHex("sha256", "c7fb0a077d24adf502a849eb20caebf5e5485bbceff66ecfe6d20221a57d8cd0")))
-				Expect(config.RootFS.DiffIDs[2]).To(Equal(digestpkg.NewDigestFromHex("sha256", "1f3613e168c1d0aaa5a5e9990eddba507b0ecd97fc47545fa09e19b78229684c")))
-				Expect(config.RootFS.DiffIDs[3]).To(Equal(digestpkg.NewDigestFromHex("sha256", "6f88661d681e0263f332fee3c04e3f88a3dda9f8eebf6a2f93ec4232719488e2")))
-				Expect(config.RootFS.DiffIDs[4]).To(Equal(digestpkg.NewDigestFromHex("sha256", "251bbadf08c36fdae6d4907da26fcc1cbe71c7c8f0e0eb094b0115f29af372fa")))
-				Expect(config.RootFS.DiffIDs[5]).To(Equal(digestpkg.NewDigestFromHex("sha256", "cc90a59ac496494827ce95c26257991d56bbb8b38556399985949b896bef7801")))
-				Expect(config.RootFS.DiffIDs[6]).To(Equal(digestpkg.NewDigestFromHex("sha256", "aa527287a51f0178662d50479697b53893b65fee9383af889ece937fd02c7c56")))
-				Expect(config.RootFS.DiffIDs[7]).To(Equal(digestpkg.NewDigestFromHex("sha256", "0e181a348ded1545ce2a2e84cf84017283315a9ec573959b0e3638ca95e36809")))
+				Expect(config.RootFS.DiffIDs[0]).To(Equal(digestpkg.NewDigestFromHex("sha256", "51f5c6a04d83efd2d45c5fd59537218924bc46705e3de6ffc8bc07b51481610b")))
+				Expect(config.RootFS.DiffIDs[1]).To(Equal(digestpkg.NewDigestFromHex("sha256", "a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4")))
+				Expect(config.RootFS.DiffIDs[2]).To(Equal(digestpkg.NewDigestFromHex("sha256", "a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4")))
+				Expect(config.RootFS.DiffIDs[3]).To(Equal(digestpkg.NewDigestFromHex("sha256", "a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4")))
+				Expect(config.RootFS.DiffIDs[4]).To(Equal(digestpkg.NewDigestFromHex("sha256", "640c8f3d0eb2b84205cc43e312914c4ae464d433089ee1c95042b893eb7af09b")))
+				Expect(config.RootFS.DiffIDs[5]).To(Equal(digestpkg.NewDigestFromHex("sha256", "a4335300aa893de13a747fee474cd982c62539fd8e20e9b5eb21125996140b8a")))
+				Expect(config.RootFS.DiffIDs[6]).To(Equal(digestpkg.NewDigestFromHex("sha256", "a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4")))
+				Expect(config.RootFS.DiffIDs[7]).To(Equal(digestpkg.NewDigestFromHex("sha256", "a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4")))
 			})
 		})
 	})

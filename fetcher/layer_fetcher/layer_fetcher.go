@@ -104,7 +104,9 @@ func (f *LayerFetcher) createLayersDigest(
 }
 
 func (f *LayerFetcher) chainID(diffID string, parentChainID string) string {
-	diffID = strings.Split(diffID, ":")[1]
+	if diffID != "" {
+		diffID = strings.Split(diffID, ":")[1]
+	}
 	chainID := diffID
 
 	if parentChainID != "" {

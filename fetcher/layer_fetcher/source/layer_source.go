@@ -173,25 +173,25 @@ func (s *LayerSource) image(logger lager.Logger, baseImageURL *url.URL) (types.I
 	return img, nil
 }
 
-func convertImage(imageToWrap types.Image) (convertedImage types.Image, err error) {
-	convertedImage = imageToWrap
+func convertImage(originalImage types.Image) (convertedImage types.Image, err error) {
+	convertedImage = originalImage
 
-	_, mimetype, _ := imageToWrap.Manifest()
+	_, mimetype, err := originalImage.Manifest()
 
 	if mimetype == manifestpkg.DockerV2Schema1MediaType || mimetype == manifestpkg.DockerV2Schema1SignedMediaType {
-		// diffIds := []digest.Digest{}
-		// for _, layer := range imageWrapper.wrappedImage.LayerInfos() {
-		// 	diffIds = append(diffIds, layer.Digest)
-		// }
+		diffIds := []digestpkg.Digest{}
+		for _, layer := range originalImage.LayerInfos() {
+			diffIds = append(diffIds, layer.Digest)
+		}
 
 		options := types.ManifestUpdateOptions{
 			ManifestMIMEType: manifestpkg.DockerV2Schema2MediaType,
-			// InformationOnly: types.ManifestUpdateInformation{
-			// 	LayerDiffIDs: diffIds,
-			// },
+			InformationOnly: types.ManifestUpdateInformation{
+				LayerDiffIDs: diffIds,
+			},
 		}
 
-		convertedImage, err = imageToWrap.UpdatedImage(options)
+		convertedImage, err = originalImage.UpdatedImage(options)
 	}
 
 	return
