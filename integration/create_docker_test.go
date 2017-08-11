@@ -189,17 +189,17 @@ var _ = Describe("Create with remote DOCKER images", func() {
 
 		Context("when the image has volumes", func() {
 			BeforeEach(func() {
-				integration.SkipIfNonRoot(GrootfsTestUid)
 				baseImageURL = "docker:///cfgarden/with-volume"
 			})
 
-			It("creates the volume folders", func() {
+			FIt("creates the volume folders", func() {
 				image, err := Runner.Create(groot.CreateSpec{
 					BaseImage: baseImageURL,
 					ID:        "random-id",
-					Mount:     true,
+					Mount:     mountByDefault(),
 				})
 				Expect(err).NotTo(HaveOccurred())
+				Expect(Runner.EnsureMounted(image)).To(Succeed())
 				volumeFolder := path.Join(image.Rootfs, "foo")
 				Expect(volumeFolder).To(BeADirectory())
 			})

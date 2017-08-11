@@ -2,6 +2,8 @@ package runner
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"syscall"
@@ -43,8 +45,10 @@ func (r Runner) Create(spec groot.CreateSpec) (groot.ImageInfo, error) {
 
 func (r Runner) EnsureMounted(image groot.ImageInfo) error {
 	if len(image.Mounts) != 0 {
-		for _, mountPoint := range image.Mounts {
-			return syscall.Mount(mountPoint.Source, mountPoint.Destination, mountPoint.Type, 0, mountPoint.Options[0])
+		for i, _ := range image.Mounts {
+			if err := syscall.Mount(image.Mounts[i].Source, image.Mounts[i].Destination, image.Mounts[i].Type, 0, image.Mounts[i].Options[0]); err != nil {
+				return errors.New(fmt.Sprintf("error creating bind mount %s: %s", image.Mounts[i], err))
+			}
 		}
 	}
 

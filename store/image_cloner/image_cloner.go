@@ -222,7 +222,7 @@ func (b *ImageCloner) imageInfo(rootfsPath, imagePath string, baseImage specsv1.
 	}
 
 	if !mount {
-		imageInfo.Mounts = []*groot.MountInfo{&mountJson}
+		imageInfo.Mounts = b.imageMounts(rootfsPath, baseImage, mountJson)
 	}
 
 	return imageInfo, nil
@@ -243,4 +243,24 @@ func (b *ImageCloner) setOwnership(spec groot.ImageSpec, paths ...string) error 
 		}
 	}
 	return nil
+}
+
+func (b *ImageCloner) imageMounts(rootfsPath string, baseImage specsv1.Image, mountJson groot.MountInfo) []*groot.MountInfo {
+	mountsArray := []*groot.MountInfo{&mountJson}
+
+	for volumeRelPath, _ := range baseImage.Config.Volumes {
+		volumeRelPath = filepath.Clean(volumeRelPath)
+		volumePath := filepath.Join(rootfsPath, volumeRelPath)
+
+		volumeMount := &groot.MountInfo{
+			Destination: volumePath,
+			Type:        "bind",
+			Source:      volumePath,
+			Options:     []string{"bind"},
+		}
+
+		mountsArray = append(mountsArray, volumeMount)
+	}
+
+	return mountsArray
 }
