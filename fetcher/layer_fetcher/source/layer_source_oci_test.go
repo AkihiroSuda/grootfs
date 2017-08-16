@@ -16,7 +16,7 @@ import (
 	digestpkg "github.com/opencontainers/go-digest"
 )
 
-var _ = Describe("Layer source: OCI", func() {
+var _ = FDescribe("Layer source: OCI", func() {
 	var (
 		trustedRegistries []string
 		layerSource       source.LayerSource
@@ -29,10 +29,13 @@ var _ = Describe("Layer source: OCI", func() {
 		expectedDiffIds      []digestpkg.Digest
 		// manifest             layer_fetcher.Manifest
 		workDir string
+
+		skipChecksumValidation bool
 	)
 
 	BeforeEach(func() {
 		trustedRegistries = []string{}
+		skipChecksumValidation = false
 
 		configBlob = "sha256:10c8f0eb9d1af08fe6e3b8dbd29e5aa2b6ecfa491ecd04ed90de19a4ac22de7b"
 		expectedLayersDigest = []types.BlobInfo{
@@ -59,7 +62,7 @@ var _ = Describe("Layer source: OCI", func() {
 	})
 
 	JustBeforeEach(func() {
-		layerSource = source.NewLayerSource("", "", trustedRegistries)
+		layerSource = source.NewLayerSource("", "", trustedRegistries, skipChecksumValidation)
 	})
 
 	Describe("Manifest", func() {
@@ -131,6 +134,7 @@ var _ = Describe("Layer source: OCI", func() {
 		})
 	})
 
+	// ??
 	// Describe("Config", func() {
 	// 	var manifest source.Manifest
 
@@ -178,6 +182,20 @@ var _ = Describe("Layer source: OCI", func() {
 			It("returns an error", func() {
 				_, _, err := layerSource.Blob(logger, baseImageURL, expectedLayersDigest[0].Digest.String())
 				Expect(err).To(MatchError(ContainSubstring("invalid checksum: layer is corrupted")))
+			})
+		})
+
+		Context("when skipChecksumValidation is set to true", func() {
+			BeforeEach(func() {
+				var err error
+				baseImageURL, err = url.Parse(fmt.Sprintf("oci:///%s/../../../integration/assets/oci-test-image/corrupted:latest", workDir))
+				Expect(err).NotTo(HaveOccurred())
+				skipChecksumValidation = true
+			})
+
+			It("does not validate against checksums and does not return an error", func() {
+				_, _, err := layerSource.Blob(logger, baseImageURL, expectedLayersDigest[0].Digest.String())
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})

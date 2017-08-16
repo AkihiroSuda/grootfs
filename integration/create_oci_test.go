@@ -395,4 +395,27 @@ var _ = Describe("Create with OCI images", func() {
 			})
 		})
 	})
+
+	Context("when --skip-layer-validation flag is passed", func() {
+		FIt("does not validate the checksums for oci image layers", func() {
+			_, err := Runner.SkipLayerCheckSumValidation().Create(groot.CreateSpec{
+				BaseImage: fmt.Sprintf("oci:///%s/assets/oci-test-image/corrupted:latest", workDir),
+				ID:        "random-id",
+				Mount:     true,
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		XIt("cannot disable layer validation for images with other protocols", func() {
+			_, err := Runner.SkipLayerCheckSumValidation().Create(groot.CreateSpec{
+				BaseImage: "docker:///do/not/skip/this",
+				ID:        "random-id",
+				Mount:     true,
+			})
+
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError("Cannot skip layer validation for docker images"))
+		})
+	})
 })

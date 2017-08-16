@@ -57,7 +57,7 @@ var _ = Describe("Layer source: Docker", func() {
 	})
 
 	JustBeforeEach(func() {
-		layerSource = source.NewLayerSource("", "", trustedRegistries)
+		layerSource = source.NewLayerSource("", "", trustedRegistries, false)
 	})
 
 	Describe("Manifest", func() {
@@ -105,7 +105,7 @@ var _ = Describe("Layer source: Docker", func() {
 
 			Context("when the correct credentials are provided", func() {
 				JustBeforeEach(func() {
-					layerSource = source.NewLayerSource(RegistryUsername, RegistryPassword, trustedRegistries)
+					layerSource = source.NewLayerSource(RegistryUsername, RegistryPassword, trustedRegistries, false)
 				})
 
 				It("fetches the manifest", func() {
@@ -185,7 +185,7 @@ var _ = Describe("Layer source: Docker", func() {
 			})
 
 			JustBeforeEach(func() {
-				layerSource = source.NewLayerSource(RegistryUsername, RegistryPassword, trustedRegistries)
+				layerSource = source.NewLayerSource(RegistryUsername, RegistryPassword, trustedRegistries, false)
 				var err error
 				manifest, err = layerSource.Manifest(logger, baseImageURL)
 				Expect(err).NotTo(HaveOccurred())
@@ -350,7 +350,7 @@ var _ = Describe("Layer source: Docker", func() {
 				})
 
 				JustBeforeEach(func() {
-					layerSource = source.NewLayerSource(RegistryUsername, RegistryPassword, trustedRegistries)
+					layerSource = source.NewLayerSource(RegistryUsername, RegistryPassword, trustedRegistries, false)
 				})
 
 				It("fetches the manifest", func() {
@@ -426,7 +426,7 @@ var _ = Describe("Layer source: Docker", func() {
 
 			Context("when the correct credentials are provided", func() {
 				JustBeforeEach(func() {
-					layerSource = source.NewLayerSource(RegistryUsername, RegistryPassword, trustedRegistries)
+					layerSource = source.NewLayerSource(RegistryUsername, RegistryPassword, trustedRegistries, false)
 				})
 
 				It("fetches the config", func() {

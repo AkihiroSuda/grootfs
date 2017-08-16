@@ -26,16 +26,18 @@ import (
 const MAX_BLOB_RETRIES = 3
 
 type LayerSource struct {
-	trustedRegistries []string
-	username          string
-	password          string
+	trustedRegistries      []string
+	username               string
+	password               string
+	skipChecksumValidation bool
 }
 
-func NewLayerSource(username, password string, trustedRegistries []string) LayerSource {
+func NewLayerSource(username, password string, trustedRegistries []string, skipChecksumValidation bool) LayerSource {
 	return LayerSource{
-		username:          username,
-		password:          password,
-		trustedRegistries: trustedRegistries,
+		username:               username,
+		password:               password,
+		trustedRegistries:      trustedRegistries,
+		skipChecksumValidation: skipChecksumValidation,
 	}
 }
 
@@ -82,9 +84,11 @@ func (s *LayerSource) Blob(logger lager.Logger, baseImageURL *url.URL, digest st
 	defer func() { _ = blobTempFile.Close() }()
 
 	blobReader := io.TeeReader(blob, blobTempFile)
+
 	if !s.checkCheckSum(logger, blobReader, digest) {
 		return "", 0, errorspkg.Errorf("invalid checksum: layer is corrupted `%s`", digest)
 	}
+
 	return blobTempFile.Name(), size, nil
 }
 
@@ -107,6 +111,10 @@ func (s *LayerSource) checkCheckSum(logger lager.Logger, data io.Reader, digest 
 		actualSize int64
 		err        error
 	)
+
+	if s.skipChecksumValidation {
+		return true
+	}
 
 	hash := sha256.New()
 	if actualSize, err = io.Copy(hash, data); err != nil {

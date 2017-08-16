@@ -13,6 +13,7 @@ import (
 
 	"github.com/containers/image/types"
 	specsv1 "github.com/opencontainers/image-spec/specs-go/v1"
+	errorspkg "github.com/pkg/errors"
 )
 
 //go:generate counterfeiter . Source
@@ -71,7 +72,7 @@ func (f *LayerFetcher) StreamBlob(logger lager.Logger, baseImageURL *url.URL, so
 	blobReader, err := NewBlobReader(blobFilePath)
 	if err != nil {
 		logger.Error("blob-reader-failed", err)
-		return nil, 0, err
+		return nil, 0, errorspkg.Wrap(err, "opening stream from temporary blob file")
 	}
 
 	return blobReader, size, nil
