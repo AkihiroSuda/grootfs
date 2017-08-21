@@ -90,13 +90,13 @@ func (u *NSIdMapperUnpacker) Unpack(logger lager.Logger, spec base_image_puller.
 		return errorspkg.Wrap(err, "creating tar control pipe")
 	}
 
-	unpackStrategyJson, err := json.Marshal(&u.unpackStrategy)
+	unpackStrategyJSON, err := json.Marshal(&u.unpackStrategy)
 	if err != nil {
 		logger.Error("unmarshal-unpack-strategy-failed", err)
 		return errorspkg.Wrap(err, "unmarshal unpack strategy")
 	}
 
-	unpackCmd := reexec.Command("unpack-wrapper", spec.TargetPath, string(unpackStrategyJson))
+	unpackCmd := reexec.Command("unpack-wrapper", spec.TargetPath, spec.BaseDirectory, string(unpackStrategyJSON))
 	unpackCmd.Stdin = spec.Stream
 	if len(spec.UIDMappings) > 0 || len(spec.GIDMappings) > 0 {
 		unpackCmd.SysProcAttr = &syscall.SysProcAttr{

@@ -140,6 +140,25 @@ var _ = Describe("Create with OCI images", func() {
 		Expect(image.Image.RootFS.DiffIDs[0]).To(Equal(digestpkg.NewDigestFromHex("sha256", "08c2295a7fa5c220b0f60c994362d290429ad92f6e0235509db91582809442f3")))
 	})
 
+	Context("when the image has cloudfoundry annotations", func() {
+		Describe("org.cloudfoundry.image.base-directory", func() {
+			BeforeEach(func() {
+				baseImageURL = fmt.Sprintf("oci:///%s/assets/oci-test-image/cloudfoundry.image.base-directory:latest", workDir)
+			})
+
+			It("untars the layer in the specified folder", func() {
+				image, err := Runner.Create(groot.CreateSpec{
+					BaseImage: baseImageURL,
+					ID:        "random-id",
+					Mount:     true,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(path.Join(image.Rootfs, "home", "example")).To(BeARegularFile())
+			})
+		})
+	})
+
 	Context("when the image has volumes", func() {
 		BeforeEach(func() {
 			baseImageURL = fmt.Sprintf("oci:///%s/assets/oci-test-image/with-volume:latest", workDir)

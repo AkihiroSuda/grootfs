@@ -92,6 +92,31 @@ var _ = Describe("Tar unpacker", func() {
 			Expect(string(contents)).To(Equal("hello-world"))
 		})
 
+		Context("when BaseDirectory is provided", func() {
+			It("creates the files inside that directory", func() {
+				Expect(os.MkdirAll(filepath.Join(targetPath, "hello/world"), 0755)).To(Succeed())
+				Expect(tarUnpacker.Unpack(logger, base_image_puller.UnpackSpec{
+					Stream:        stream,
+					TargetPath:    targetPath,
+					BaseDirectory: "/hello/world",
+				})).To(Succeed())
+
+				filePath := path.Join(targetPath, "/hello/world", "a_file")
+				Expect(filePath).To(BeARegularFile())
+			})
+
+			Context("when the base directory doesn't exist", func() {
+				It("returns an error", func() {
+					err := tarUnpacker.Unpack(logger, base_image_puller.UnpackSpec{
+						Stream:        stream,
+						TargetPath:    targetPath,
+						BaseDirectory: "/hello/world",
+					})
+					Expect(err).To(MatchError(ContainSubstring("creating directory")))
+				})
+			})
+		})
+
 		Context("file ownership", func() {
 			BeforeEach(func() {
 				Expect(ioutil.WriteFile(filepath.Join(baseImagePath, "groot_file"), []byte{}, 0755)).To(Succeed())

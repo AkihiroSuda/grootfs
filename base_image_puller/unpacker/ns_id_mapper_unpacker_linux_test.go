@@ -66,9 +66,10 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 		Expect(os.RemoveAll(imagePath)).To(Succeed())
 	})
 
-	It("passes the rootfs path and filesystem to the unpack-wrapper command", func() {
+	It("passes the rootfs path, base-directory and filesystem to the unpack-wrapper command", func() {
 		Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
-			TargetPath: targetPath,
+			TargetPath:    targetPath,
+			BaseDirectory: "/base-folder/",
 		})).To(Succeed())
 
 		unpackStrategyJson, err := json.Marshal(&unpackStrategy)
@@ -78,7 +79,7 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 		Expect(commands).To(HaveLen(1))
 		Expect(commands[0].Path).To(Equal("/proc/self/exe"))
 		Expect(commands[0].Args).To(Equal([]string{
-			"unpack-wrapper", targetPath, string(unpackStrategyJson),
+			"unpack-wrapper", targetPath, "/base-folder/", string(unpackStrategyJson),
 		}))
 	})
 

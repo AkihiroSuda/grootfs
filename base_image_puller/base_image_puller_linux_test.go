@@ -54,7 +54,7 @@ var _ = Describe("Base Image Puller", func() {
 		expectedImgDesc = &specsv1.Image{Author: "Groot"}
 		layersDigest = []base_image_puller.LayerDigest{
 			{BlobID: "i-am-a-layer", ChainID: "layer-111", ParentChainID: ""},
-			{BlobID: "i-am-another-layer", ChainID: "chain-222", ParentChainID: "layer-111"},
+			{BlobID: "i-am-another-layer", ChainID: "chain-222", ParentChainID: "layer-111", BaseDirectory: "/home"},
 			{BlobID: "i-am-the-last-layer", ChainID: "chain-333", ParentChainID: "chain-222"},
 		}
 		fakeLayerFetcher.BaseImageInfoReturns(
@@ -149,6 +149,21 @@ var _ = Describe("Base Image Puller", func() {
 		Expect(unpackSpec.TargetPath).To(MatchRegexp(filepath.Join(volumesDir, "chain-222-incomplete-\\d*-\\d*")))
 		_, unpackSpec = fakeUnpacker.UnpackArgsForCall(2)
 		Expect(unpackSpec.TargetPath).To(MatchRegexp(filepath.Join(volumesDir, "chain-333-incomplete-\\d*-\\d*")))
+	})
+
+	It("forward the correct BaseDirectory for each layer to the unpacker", func() {
+		_, err := baseImagePuller.Pull(logger, groot.BaseImageSpec{
+			BaseImageSrc: baseImageSrcURL,
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(fakeUnpacker.UnpackCallCount()).To(Equal(3))
+		_, unpackSpec := fakeUnpacker.UnpackArgsForCall(0)
+		Expect(unpackSpec.BaseDirectory).To(Equal(""))
+		_, unpackSpec = fakeUnpacker.UnpackArgsForCall(1)
+		Expect(unpackSpec.BaseDirectory).To(Equal("/home"))
+		_, unpackSpec = fakeUnpacker.UnpackArgsForCall(2)
+		Expect(unpackSpec.BaseDirectory).To(Equal(""))
 	})
 
 	It("unpacks the layers got from the fetcher", func() {

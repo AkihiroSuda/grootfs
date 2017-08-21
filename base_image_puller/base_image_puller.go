@@ -26,10 +26,11 @@ const MetricsFailedUnpackTimeName = "FailedUnpackTime"
 //go:generate counterfeiter . VolumeDriver
 
 type UnpackSpec struct {
-	Stream      io.ReadCloser `json:"-"`
-	TargetPath  string
-	UIDMappings []groot.IDMappingSpec
-	GIDMappings []groot.IDMappingSpec
+	Stream        io.ReadCloser `json:"-"`
+	TargetPath    string
+	UIDMappings   []groot.IDMappingSpec
+	GIDMappings   []groot.IDMappingSpec
+	BaseDirectory string
 }
 
 type LayerDigest struct {
@@ -37,6 +38,7 @@ type LayerDigest struct {
 	ChainID       string
 	ParentChainID string
 	Size          int64
+	BaseDirectory string
 }
 
 type BaseImageInfo struct {
@@ -247,10 +249,11 @@ func (p *BaseImagePuller) unpackLayer(logger lager.Logger, digest LayerDigest, s
 	}
 
 	unpackSpec := UnpackSpec{
-		TargetPath:  volumePath,
-		Stream:      stream,
-		UIDMappings: spec.UIDMappings,
-		GIDMappings: spec.GIDMappings,
+		TargetPath:    volumePath,
+		Stream:        stream,
+		UIDMappings:   spec.UIDMappings,
+		GIDMappings:   spec.GIDMappings,
+		BaseDirectory: digest.BaseDirectory,
 	}
 
 	err = p.unpackLayerToTemporaryDirectory(logger, unpackSpec, digest)

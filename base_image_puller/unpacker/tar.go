@@ -40,7 +40,8 @@ func init() {
 		logger.RegisterSink(lager.NewWriterSink(os.Stderr, lager.DEBUG))
 
 		rootFSPath := os.Args[1]
-		unpackStrategyJSON := os.Args[2]
+		baseDirectory := os.Args[2]
+		unpackStrategyJSON := os.Args[3]
 
 		var unpackStrategy UnpackStrategy
 		if err := json.Unmarshal([]byte(unpackStrategyJSON), &unpackStrategy); err != nil {
@@ -52,8 +53,9 @@ func init() {
 			fail(logger, "creating-tar-unpacker", err)
 		}
 		if err := unpacker.Unpack(logger, base_image_puller.UnpackSpec{
-			Stream:     os.Stdin,
-			TargetPath: rootFSPath,
+			Stream:        os.Stdin,
+			TargetPath:    rootFSPath,
+			BaseDirectory: baseDirectory,
 		}); err != nil {
 			fail(logger, "unpacking-failed", err)
 		}
@@ -265,18 +267,20 @@ func (u *TarUnpacker) unpack(logger lager.Logger, spec base_image_puller.UnpackS
 			return err
 		}
 
+		entryPath := filepath.Join(spec.BaseDirectory, tarHeader.Name)
+
 		if strings.Contains(tarHeader.Name, ".wh..wh..opq") {
-			opaqueWhiteouts = append(opaqueWhiteouts, tarHeader.Name)
+			opaqueWhiteouts = append(opaqueWhiteouts, entryPath)
 			continue
 		}
 		if strings.Contains(tarHeader.Name, ".wh.") {
-			if err := u.whiteoutHandler.removeWhiteout(tarHeader.Name); err != nil { // pass fd here
+			if err := u.whiteoutHandler.removeWhiteout(entryPath); err != nil {
 				return err
 			}
 			continue
 		}
 
-		if err := u.handleEntry(tarHeader.Name, tarReader, tarHeader, spec); err != nil {
+		if err := u.handleEntry(entryPath, tarReader, tarHeader, spec); err != nil {
 			return err
 		}
 	}
