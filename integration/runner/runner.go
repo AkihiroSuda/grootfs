@@ -116,10 +116,6 @@ func (r Runner) makeCmd(subcommand string, args []string) *exec.Cmd {
 	if r.StorePath != "" {
 		allArgs = append(allArgs, "--store", r.StorePath)
 	}
-	if r.Driver != "" {
-		allArgs = append(allArgs, "--driver", r.Driver)
-	}
-
 	if r.TardisBin != "" {
 		allArgs = append(allArgs, "--tardis-bin", r.TardisBin)
 	}

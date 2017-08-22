@@ -14,6 +14,10 @@ import (
 	"github.com/urfave/cli"
 )
 
+const (
+	defaultFilesystemDriver = "btrfs"
+)
+
 var InitStoreCommand = cli.Command{
 	Name:        "init-store",
 	Usage:       "init-store --store <path>",
@@ -41,6 +45,11 @@ var InitStoreCommand = cli.Command{
 			Usage: "Size of the external log device when using XFS driver. 0 to disable. Only works with store-size-bytes option.",
 			Value: 0,
 		},
+		cli.StringFlag{
+			Name:  "driver",
+			Usage: "Storage driver to use <btrfs|overlay-xfs>",
+			Value: defaultFilesystemDriver,
+		},
 	},
 
 	Action: func(ctx *cli.Context) error {
@@ -54,7 +63,8 @@ var InitStoreCommand = cli.Command{
 
 		configBuilder := ctx.App.Metadata["configBuilder"].(*config.Builder).
 			WithStoreSizeBytes(ctx.Int64("store-size-bytes")).
-			WithExternalLogdevSize(ctx.Int64("external-logdev-size-mb"))
+			WithExternalLogdevSize(ctx.Int64("external-logdev-size-mb")).
+			WithFSDriver(ctx.String("driver"), ctx.IsSet("driver"))
 		cfg, err := configBuilder.Build()
 		logger.Debug("init-store", lager.Data{"currentConfig": cfg})
 		if err != nil {
@@ -106,6 +116,7 @@ var InitStoreCommand = cli.Command{
 			UIDMappings:    uidMappings,
 			GIDMappings:    gidMappings,
 			StoreSizeBytes: storeSizeBytes,
+			FSDriver:       cfg.FSDriver,
 		}
 
 		manager := manager.New(storePath, namespacer, fsDriver, fsDriver, fsDriver)

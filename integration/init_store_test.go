@@ -31,7 +31,9 @@ var _ = Describe("Init Store", func() {
 		integration.SkipIfNonRoot(GrootfsTestUid)
 
 		runner = Runner.WithStore(StorePath).SkipInitStore()
-		spec = grootfsRunner.InitSpec{}
+		spec = grootfsRunner.InitSpec{
+			FilesystemDriver: Driver,
+		}
 	})
 
 	Context("when --store-size-bytes is passed", func() {

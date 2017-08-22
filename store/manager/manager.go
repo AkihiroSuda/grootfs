@@ -41,6 +41,7 @@ type InitSpec struct {
 	UIDMappings    []groot.IDMappingSpec
 	GIDMappings    []groot.IDMappingSpec
 	StoreSizeBytes int64
+	FSDriver       string
 }
 
 func New(storePath string, storeNamespacer StoreNamespacer, volumeDriver base_image_puller.VolumeDriver, imageDriver image_cloner.ImageDriver, storeDriver StoreDriver) *Manager {
@@ -86,6 +87,13 @@ func (m *Manager) InitStore(logger lager.Logger, spec InitSpec) error {
 	if err := os.MkdirAll(filepath.Join(m.storePath, store.MetaDirName), 0755); err != nil {
 		logger.Error("init-store-failed", err)
 		return errorspkg.Wrap(err, "initializing store")
+	}
+
+	// TODO: Think if we can test this error somehow
+	err = ioutil.WriteFile(filepath.Join(m.storePath, store.MetaDirName, "driver"), []byte(spec.FSDriver), 0700)
+	if err != nil {
+		logger.Error("writing-driver-failed", err)
+		return err
 	}
 
 	err = m.storeNamespacer.ApplyMappings(spec.UIDMappings, spec.GIDMappings)

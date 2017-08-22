@@ -48,7 +48,9 @@ var _ = Describe("Manager", func() {
 
 		logger = lagertest.NewTestLogger("store-manager")
 
-		spec = managerpkg.InitSpec{}
+		spec = managerpkg.InitSpec{
+			FSDriver: "test-driver",
+		}
 	})
 
 	AfterEach(func() {
@@ -174,6 +176,17 @@ var _ = Describe("Manager", func() {
 				err := manager.InitStore(logger, spec)
 				Expect(err).To(MatchError(ContainSubstring("not a valid filesystem")))
 			})
+		})
+
+		It("stores the driver on disk", func() {
+			Expect(manager.InitStore(logger, spec)).To(Succeed())
+			driverFilePath := filepath.Join(storePath, store.MetaDirName, "driver")
+			Expect(driverFilePath).To(BeAnExistingFile())
+
+			bytes, err := ioutil.ReadFile(driverFilePath)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(string(bytes)).To(Equal(spec.FSDriver))
 		})
 
 		Context("when id mappings are provided", func() {

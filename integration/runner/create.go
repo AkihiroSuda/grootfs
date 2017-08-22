@@ -28,6 +28,8 @@ func (r Runner) Create(spec groot.CreateSpec) (groot.ImageInfo, error) {
 		}
 	}
 
+	// time.Sleep(time.Hour)
+
 	args := r.makeCreateArgs(spec)
 	output, err := r.RunSubcommand("create", args...)
 	if err != nil {

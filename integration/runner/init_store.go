@@ -7,10 +7,11 @@ import (
 )
 
 type InitSpec struct {
-	Rootless       string
-	UIDMappings    []groot.IDMappingSpec
-	GIDMappings    []groot.IDMappingSpec
-	StoreSizeBytes int64
+	Rootless         string
+	UIDMappings      []groot.IDMappingSpec
+	GIDMappings      []groot.IDMappingSpec
+	StoreSizeBytes   int64
+	FilesystemDriver string
 }
 
 func (r Runner) InitStore(spec InitSpec) error {
@@ -38,6 +39,10 @@ func (r Runner) InitStore(spec InitSpec) error {
 
 	if r.ExternaLogDeviceSize > 0 {
 		args = append(args, "--external-logdev-size-mb", fmt.Sprintf("%d", r.ExternaLogDeviceSize))
+	}
+
+	if spec.FilesystemDriver != "" {
+		args = append(args, "--driver", spec.FilesystemDriver)
 	}
 
 	_, err := r.RunSubcommand("init-store", args...)

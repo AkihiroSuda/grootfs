@@ -18,11 +18,10 @@ import (
 )
 
 const (
-	defaultFilesystemDriver = "btrfs"
-	defaultDraxBin          = "drax"
-	defaultTardisBin        = "tardis"
-	defaultNewuidmapBin     = "newuidmap"
-	defaultNewgidmapBin     = "newgidmap"
+	defaultDraxBin      = "drax"
+	defaultTardisBin    = "tardis"
+	defaultNewuidmapBin = "newuidmap"
+	defaultNewgidmapBin = "newgidmap"
 )
 
 func init() {
@@ -47,11 +46,6 @@ func main() {
 			Name:  "store",
 			Usage: "Path to the store directory",
 			Value: store.DefaultStorePath,
-		},
-		cli.StringFlag{
-			Name:  "driver",
-			Usage: "Storage driver to use <btrfs|overlay-xfs>",
-			Value: defaultFilesystemDriver,
 		},
 		cli.StringFlag{
 			Name:  "log-level",
@@ -112,7 +106,6 @@ func main() {
 		ctx.App.Metadata["configBuilder"] = cfgBuilder
 
 		cfg, err := cfgBuilder.WithStorePath(ctx.GlobalString("store"), ctx.IsSet("store")).
-			WithFSDriver(ctx.GlobalString("driver"), ctx.IsSet("driver")).
 			WithDraxBin(ctx.GlobalString("drax-bin"), ctx.IsSet("drax-bin")).
 			WithTardisBin(ctx.GlobalString("tardis-bin"), ctx.IsSet("tardis-bin")).
 			WithMetronEndpoint(ctx.GlobalString("metron-endpoint")).

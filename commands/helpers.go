@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"code.cloudfoundry.org/grootfs/groot"
 	"code.cloudfoundry.org/grootfs/metrics"
 	"code.cloudfoundry.org/grootfs/metrics/systemreporter"
+	"code.cloudfoundry.org/grootfs/store"
 	"code.cloudfoundry.org/grootfs/store/filesystems/btrfs"
 	"code.cloudfoundry.org/grootfs/store/filesystems/overlayxfs"
 	"code.cloudfoundry.org/grootfs/store/image_cloner"
@@ -32,7 +34,16 @@ type fileSystemDriver interface {
 }
 
 func createFileSystemDriver(cfg config.Config) (fileSystemDriver, error) {
-	switch cfg.FSDriver {
+	driver, err := getFileSystemDriverFromDisk(cfg.StorePath)
+	if err != nil {
+		return nil, err
+	}
+
+	if driver == "" {
+		driver = cfg.FSDriver
+	}
+
+	switch driver {
 	case "btrfs":
 		return btrfs.NewDriver(filepath.Join(cfg.BtrfsProgsPath, "btrfs"),
 			filepath.Join(cfg.BtrfsProgsPath, "mkfs.btrfs"), cfg.DraxBin, cfg.StorePath), nil
@@ -41,6 +52,18 @@ func createFileSystemDriver(cfg config.Config) (fileSystemDriver, error) {
 	default:
 		return nil, errorspkg.Errorf("filesystem driver not supported: %s", cfg.FSDriver)
 	}
+}
+
+func getFileSystemDriverFromDisk(storePath string) (string, error) {
+	bytes, err := ioutil.ReadFile(filepath.Join(storePath, store.MetaDirName, "driver"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	return string(bytes), nil
 }
 
 func parseIDMappings(args []string) ([]groot.IDMappingSpec, error) {
