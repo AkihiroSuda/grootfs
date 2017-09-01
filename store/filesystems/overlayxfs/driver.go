@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 
+	"code.cloudfoundry.org/grootfs/base_image_puller"
 	"code.cloudfoundry.org/grootfs/groot"
 	"code.cloudfoundry.org/grootfs/store"
 	"code.cloudfoundry.org/grootfs/store/filesystems"
@@ -295,6 +296,10 @@ func (d *Driver) MoveVolume(logger lager.Logger, from, to string) error {
 		return errorspkg.Wrap(err, "updating volume symlink")
 	}
 
+	return nil
+}
+
+func (d *Driver) WriteVolumeMeta(logger lager.Logger, id string, metadata base_image_puller.VolumeMeta) error {
 	return nil
 }
 

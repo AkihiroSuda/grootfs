@@ -1,6 +1,7 @@
 package overlayxfs_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -10,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"code.cloudfoundry.org/grootfs/base_image_puller"
 	"code.cloudfoundry.org/grootfs/store"
 	"code.cloudfoundry.org/grootfs/store/filesystems"
 	"code.cloudfoundry.org/grootfs/store/filesystems/overlayxfs"
@@ -78,7 +80,7 @@ var _ = Describe("Driver", func() {
 		})
 
 		AfterEach(func() {
-			syscall.Unmount(storePath, 0)
+			_ = syscall.Unmount(storePath, 0)
 		})
 
 		It("succcesfully creates and mounts a filesystem", func() {
@@ -145,8 +147,8 @@ var _ = Describe("Driver", func() {
 			})
 
 			AfterEach(func() {
-				syscall.Unmount(storePath, 0)
-				exec.Command("sh", "-c", fmt.Sprintf("losetup -j %s | cut -d : -f 1 | xargs losetup -d", logdevPath)).Run()
+				_ = syscall.Unmount(storePath, 0)
+				_ = exec.Command("sh", "-c", fmt.Sprintf("losetup -j %s | cut -d : -f 1 | xargs losetup -d", logdevPath)).Run()
 			})
 
 			It("succcesfully creates a logdev file", func() {
@@ -990,6 +992,21 @@ var _ = Describe("Driver", func() {
 				err := driver.MoveVolume(logger, volumePath, filepath.Dir(volumePath))
 				Expect(err).NotTo(HaveOccurred())
 			})
+		})
+	})
+
+	Describe("WriteVolumeMeta", func() {
+		It("creates the correct metadata file", func() {
+			err := driver.WriteVolumeMeta(logger, "1234", base_image_puller.VolumeMeta{Size: 1024})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(filepath.Join(StorePath, store.MetaDirName, "volume-1234")).To(BeAnExistingFile())
+			metaFile, err := os.Open(metaFile)
+			Expect(err).NotTo(HaveOccurred())
+			var meta base_image_puller.VolumeMeta
+
+			Expect(json.NewDecoder(metaFile).Decode(&meta)).To(HaveSucceed())
+			Expect(meta).To(Equal(base_image_puller.VolumeMeta{Size: 1024}))
 		})
 	})
 })
