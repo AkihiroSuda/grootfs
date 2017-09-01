@@ -80,20 +80,20 @@ func NewNSIdMapperUnpacker(commandRunner commandrunner.CommandRunner, idMapper I
 	}
 }
 
-func (u *NSIdMapperUnpacker) Unpack(logger lager.Logger, spec base_image_puller.UnpackSpec) error {
+func (u *NSIdMapperUnpacker) Unpack(logger lager.Logger, spec base_image_puller.UnpackSpec) (int64, error) {
 	logger = logger.Session("ns-id-mapper-unpacking", lager.Data{"spec": spec})
 	logger.Debug("starting")
 	defer logger.Debug("ending")
 
 	ctrlPipeR, ctrlPipeW, err := os.Pipe()
 	if err != nil {
-		return errorspkg.Wrap(err, "creating tar control pipe")
+		return 0, errorspkg.Wrap(err, "creating tar control pipe")
 	}
 
 	unpackStrategyJson, err := json.Marshal(&u.unpackStrategy)
 	if err != nil {
 		logger.Error("unmarshal-unpack-strategy-failed", err)
-		return errorspkg.Wrap(err, "unmarshal unpack strategy")
+		return 0, errorspkg.Wrap(err, "unmarshal unpack strategy")
 	}
 
 	unpackCmd := reexec.Command("unpack-wrapper", spec.TargetPath, string(unpackStrategyJson))
@@ -114,27 +114,27 @@ func (u *NSIdMapperUnpacker) Unpack(logger lager.Logger, spec base_image_puller.
 		"args": unpackCmd.Args,
 	})
 	if err := u.commandRunner.Start(unpackCmd); err != nil {
-		return errorspkg.Wrap(err, "starting unpack command")
+		return 0, errorspkg.Wrap(err, "starting unpack command")
 	}
 	logger.Debug("unpack-wrapper-command-is-started")
 
 	if err := u.setIDMappings(logger, spec, unpackCmd.Process.Pid); err != nil {
 		_ = ctrlPipeW.Close()
-		return err
+		return 0, err
 	}
 
 	if _, err := ctrlPipeW.Write([]byte{0}); err != nil {
-		return errorspkg.Wrap(err, "writing to tar control pipe")
+		return 0, errorspkg.Wrap(err, "writing to tar control pipe")
 	}
 	logger.Debug("unpack-wrapper-command-is-signaled-to-continue")
 
 	logger.Debug("waiting-for-unpack-wrapper-command")
 	if err := u.commandRunner.Wait(unpackCmd); err != nil {
-		return errorspkg.Errorf(outBuffer.String())
+		return 0, errorspkg.Errorf(outBuffer.String())
 	}
 	logger.Debug("unpack-wrapper-command-done")
 
-	return nil
+	return 0, nil
 }
 
 func (u *NSIdMapperUnpacker) setIDMappings(logger lager.Logger, spec base_image_puller.UnpackSpec, untarPid int) error {

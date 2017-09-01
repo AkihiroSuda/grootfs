@@ -67,9 +67,10 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 	})
 
 	It("passes the rootfs path and filesystem to the unpack-wrapper command", func() {
-		Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
+		_, err := unpacker.Unpack(logger, base_image_puller.UnpackSpec{
 			TargetPath: targetPath,
-		})).To(Succeed())
+		})
+		Expect(err).NotTo(HaveOccurred())
 
 		unpackStrategyJson, err := json.Marshal(&unpackStrategy)
 		Expect(err).NotTo(HaveOccurred())
@@ -86,10 +87,11 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 		streamR, streamW, err := os.Pipe()
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
+		_, err = unpacker.Unpack(logger, base_image_puller.UnpackSpec{
 			Stream:     streamR,
 			TargetPath: targetPath,
-		})).To(Succeed())
+		})
+		Expect(err).NotTo(HaveOccurred())
 
 		_, err = streamW.WriteString("hello-world")
 		Expect(err).NotTo(HaveOccurred())
@@ -104,12 +106,13 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 	})
 
 	It("starts the unpack-wrapper command in a user namespace", func() {
-		Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
+		_, err := unpacker.Unpack(logger, base_image_puller.UnpackSpec{
 			UIDMappings: []groot.IDMappingSpec{
 				{HostID: 1000, NamespaceID: 2000, Size: 10},
 			},
 			TargetPath: targetPath,
-		})).To(Succeed())
+		})
+		Expect(err).NotTo(HaveOccurred())
 
 		commands := fakeCommandRunner.StartedCommands()
 		Expect(commands).To(HaveLen(1))
@@ -127,9 +130,10 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 			return nil
 		})
 
-		Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
+		_, err := unpacker.Unpack(logger, base_image_puller.UnpackSpec{
 			TargetPath: targetPath,
-		})).To(Succeed())
+		})
+		Expect(err).NotTo(HaveOccurred())
 
 		Expect(logger).To(ContainSequence(
 			Debug(
@@ -143,9 +147,10 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 
 	Context("when no mappings are provided", func() {
 		It("starts the unpack-wrapper command in the same namespaces", func() {
-			Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
+			_, err := unpacker.Unpack(logger, base_image_puller.UnpackSpec{
 				TargetPath: targetPath,
-			})).To(Succeed())
+			})
+			Expect(err).NotTo(HaveOccurred())
 
 			commands := fakeCommandRunner.StartedCommands()
 			Expect(commands).To(HaveLen(1))
@@ -154,14 +159,15 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 	})
 
 	It("signals the unpack-wrapper command to continue using the contol pipe", func(done Done) {
-		Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
+		_, err := unpacker.Unpack(logger, base_image_puller.UnpackSpec{
 			TargetPath: targetPath,
-		})).To(Succeed())
+		})
+		Expect(err).NotTo(HaveOccurred())
 
 		commands := fakeCommandRunner.StartedCommands()
 		Expect(commands).To(HaveLen(1))
 		buffer := make([]byte, 1)
-		_, err := commands[0].ExtraFiles[0].Read(buffer)
+		_, err = commands[0].ExtraFiles[0].Read(buffer)
 		Expect(err).NotTo(HaveOccurred())
 
 		close(done)
@@ -169,12 +175,13 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 
 	Describe("UIDMappings", func() {
 		It("applies the provided uid mappings", func() {
-			Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
+			_, err := unpacker.Unpack(logger, base_image_puller.UnpackSpec{
 				TargetPath: targetPath,
 				UIDMappings: []groot.IDMappingSpec{
 					{HostID: 1000, NamespaceID: 2000, Size: 10},
 				},
-			})).To(Succeed())
+			})
+			Expect(err).NotTo(HaveOccurred())
 
 			Expect(fakeIDMapper.MapUIDsCallCount()).To(Equal(1))
 			_, _, mappings := fakeIDMapper.MapUIDsArgsForCall(0)
@@ -189,27 +196,19 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 				fakeIDMapper.MapUIDsReturns(errors.New("Boom!"))
 			})
 
-			It("returns an error", func() {
-				Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
-					TargetPath: targetPath,
-					UIDMappings: []groot.IDMappingSpec{
-						{HostID: 1000, NamespaceID: 2000, Size: 10},
-					},
-				})).To(MatchError(ContainSubstring("Boom!")))
-			})
-
 			It("closes the control pipe", func() {
-				Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
+				_, err := unpacker.Unpack(logger, base_image_puller.UnpackSpec{
 					TargetPath: targetPath,
 					UIDMappings: []groot.IDMappingSpec{
 						{HostID: 1000, NamespaceID: 2000, Size: 10},
 					},
-				})).NotTo(Succeed())
+				})
+				Expect(err).To(HaveOccurred())
 
 				commands := fakeCommandRunner.StartedCommands()
 				Expect(commands).To(HaveLen(1))
 				buffer := make([]byte, 1)
-				_, err := commands[0].ExtraFiles[0].Read(buffer)
+				_, err = commands[0].ExtraFiles[0].Read(buffer)
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -217,12 +216,13 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 
 	Describe("GIDMappings", func() {
 		It("applies the provided gid mappings", func() {
-			Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
+			_, err := unpacker.Unpack(logger, base_image_puller.UnpackSpec{
 				TargetPath: targetPath,
 				GIDMappings: []groot.IDMappingSpec{
 					{HostID: 1000, NamespaceID: 2000, Size: 10},
 				},
-			})).To(Succeed())
+			})
+			Expect(err).NotTo(HaveOccurred())
 
 			Expect(fakeIDMapper.MapGIDsCallCount()).To(Equal(1))
 			_, _, mappings := fakeIDMapper.MapGIDsArgsForCall(0)
@@ -237,27 +237,19 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 				fakeIDMapper.MapGIDsReturns(errors.New("Boom!"))
 			})
 
-			It("returns an error", func() {
-				Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
-					TargetPath: targetPath,
-					GIDMappings: []groot.IDMappingSpec{
-						{HostID: 1000, NamespaceID: 2000, Size: 10},
-					},
-				})).To(MatchError(ContainSubstring("Boom!")))
-			})
-
 			It("closes the control pipe", func() {
-				Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
+				_, err := unpacker.Unpack(logger, base_image_puller.UnpackSpec{
 					TargetPath: targetPath,
 					GIDMappings: []groot.IDMappingSpec{
 						{HostID: 1000, NamespaceID: 2000, Size: 10},
 					},
-				})).NotTo(Succeed())
+				})
+				Expect(err).To(HaveOccurred())
 
 				commands := fakeCommandRunner.StartedCommands()
 				Expect(commands).To(HaveLen(1))
 				buffer := make([]byte, 1)
-				_, err := commands[0].ExtraFiles[0].Read(buffer)
+				_, err = commands[0].ExtraFiles[0].Read(buffer)
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -269,11 +261,10 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 		})
 
 		It("returns an error", func() {
-			Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
+			_, err := unpacker.Unpack(logger, base_image_puller.UnpackSpec{
 				TargetPath: targetPath,
-			})).To(
-				MatchError(ContainSubstring("failed to start unpack")),
-			)
+			})
+			Expect(err).To(MatchError(ContainSubstring("failed to start unpack")))
 		})
 	})
 
@@ -289,17 +280,17 @@ var _ = Describe("NSIdMapperUnpacker", func() {
 		})
 
 		It("returns an error", func() {
-			Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
+			_, err := unpacker.Unpack(logger, base_image_puller.UnpackSpec{
 				TargetPath: targetPath,
-			})).NotTo(Succeed())
+			})
+			Expect(err).To(HaveOccurred())
 		})
 
 		It("returns the command output", func() {
-			Expect(unpacker.Unpack(logger, base_image_puller.UnpackSpec{
+			_, err := unpacker.Unpack(logger, base_image_puller.UnpackSpec{
 				TargetPath: targetPath,
-			})).To(
-				MatchError(ContainSubstring("hello-world")),
-			)
+			})
+			Expect(err).To(MatchError(ContainSubstring("hello-world")))
 		})
 	})
 })
