@@ -21,7 +21,7 @@ func NewTarFetcher() *TarFetcher {
 }
 
 func (l *TarFetcher) StreamBlob(logger lager.Logger, baseImageURL *url.URL,
-	source string) (io.ReadCloser, int64, error) {
+	source string, _ []string) (io.ReadCloser, int64, error) {
 	logger = logger.Session("stream-blob", lager.Data{
 		"baseImageURL": baseImageURL.String(),
 		"source":       source,

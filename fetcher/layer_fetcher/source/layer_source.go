@@ -76,7 +76,7 @@ func (s *LayerSource) Manifest(logger lager.Logger, baseImageURL *url.URL) (type
 	return img, errorspkg.Wrap(err, "fetching image reference")
 }
 
-func (s *LayerSource) Blob(logger lager.Logger, baseImageURL *url.URL, digest string) (string, int64, error) {
+func (s *LayerSource) Blob(logger lager.Logger, baseImageURL *url.URL, digest string, URLs []string) (string, int64, error) {
 	logrus.SetOutput(os.Stderr)
 	logger = logger.Session("streaming-blob", lager.Data{
 		"baseImageURL": baseImageURL,
@@ -90,7 +90,7 @@ func (s *LayerSource) Blob(logger lager.Logger, baseImageURL *url.URL, digest st
 		return "", 0, err
 	}
 
-	blobInfo := types.BlobInfo{Digest: digestpkg.Digest(digest)}
+	blobInfo := types.BlobInfo{Digest: digestpkg.Digest(digest), URLs: URLs}
 
 	blob, size, err := s.getBlobWithRetries(imgSrc, blobInfo, logger)
 	if err != nil {

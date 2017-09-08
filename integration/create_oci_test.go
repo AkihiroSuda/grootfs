@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -51,6 +52,30 @@ var _ = Describe("Create with OCI images", func() {
 
 		Expect(Runner.RunningAsUser(0, 0).InitStore(initSpec)).To(Succeed())
 		runner = Runner.SkipInitStore()
+	})
+
+	Context("with a remote url in an image", func() {
+		BeforeEach(func() {
+			baseImageURL = fmt.Sprintf("oci:///%s/assets/oci-test-image/garden-busybox-remote:latest", workDir)
+
+			go func() {
+				defer GinkgoRecover()
+
+				fs := http.FileServer(http.Dir(fmt.Sprintf("/%s/assets/remote-layers/garden-busybox-remote", workDir)))
+				http.Handle("/", fs)
+				Expect(http.ListenAndServe("127.0.0.1:12000", nil)).To(Succeed())
+			}()
+		})
+
+		FIt("creates an image", func() {
+			image, err := runner.Create(groot.CreateSpec{
+				BaseImage: baseImageURL,
+				ID:        "random-id",
+				Mount:     mountByDefault(),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(Runner.EnsureMounted(image)).To(Succeed())
+		})
 	})
 
 	It("creates a root filesystem based on the image provided", func() {

@@ -42,6 +42,7 @@ type LayerDigest struct {
 	ParentChainID string
 	Size          int64
 	BaseDirectory string
+	URLs          []string
 }
 
 type BaseImageInfo struct {
@@ -55,7 +56,7 @@ type VolumeMeta struct {
 
 type Fetcher interface {
 	BaseImageInfo(logger lager.Logger, baseImageURL *url.URL) (BaseImageInfo, error)
-	StreamBlob(logger lager.Logger, baseImageURL *url.URL, source string) (io.ReadCloser, int64, error)
+	StreamBlob(logger lager.Logger, baseImageURL *url.URL, source string, URLs []string) (io.ReadCloser, int64, error)
 }
 
 type DependencyRegisterer interface {
@@ -241,7 +242,7 @@ func (p *BaseImagePuller) downloadLayer(logger lager.Logger, spec groot.BaseImag
 	defer logger.Debug("ending")
 	defer p.metricsEmitter.TryEmitDurationFrom(logger, MetricsDownloadTimeName, time.Now())
 
-	stream, size, err := p.fetcher(spec.BaseImageSrc).StreamBlob(logger, spec.BaseImageSrc, digest.BlobID)
+	stream, size, err := p.fetcher(spec.BaseImageSrc).StreamBlob(logger, spec.BaseImageSrc, digest.BlobID, digest.URLs)
 	if err != nil {
 		err = errorspkg.Wrapf(err, "streaming blob `%s`", digest.BlobID)
 	}

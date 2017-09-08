@@ -29,7 +29,7 @@ type Manifest interface {
 
 type Source interface {
 	Manifest(logger lager.Logger, baseImageURL *url.URL) (types.Image, error)
-	Blob(logger lager.Logger, baseImageURL *url.URL, digest string) (string, int64, error)
+	Blob(logger lager.Logger, baseImageURL *url.URL, digest string, URLs []string) (string, int64, error)
 }
 
 type LayerFetcher struct {
@@ -67,12 +67,12 @@ func (f *LayerFetcher) BaseImageInfo(logger lager.Logger, baseImageURL *url.URL)
 	}, nil
 }
 
-func (f *LayerFetcher) StreamBlob(logger lager.Logger, baseImageURL *url.URL, source string) (io.ReadCloser, int64, error) {
+func (f *LayerFetcher) StreamBlob(logger lager.Logger, baseImageURL *url.URL, source string, URLs []string) (io.ReadCloser, int64, error) {
 	logger = logger.Session("streaming", lager.Data{"baseImageURL": baseImageURL})
 	logger.Info("starting")
 	defer logger.Info("ending")
 
-	blobFilePath, size, err := f.source.Blob(logger, baseImageURL, source)
+	blobFilePath, size, err := f.source.Blob(logger, baseImageURL, source, URLs)
 	if err != nil {
 		logger.Error("source-blob-failed", err)
 		return nil, 0, err
@@ -104,6 +104,7 @@ func (f *LayerFetcher) createLayersDigest(logger lager.Logger, image Manifest, c
 			ChainID:       chainID,
 			ParentChainID: parentChainID,
 			BaseDirectory: layer.Annotations[cfBaseDirectoryAnnotation],
+			URLs:          layer.URLs,
 		})
 		parentChainID = chainID
 	}
