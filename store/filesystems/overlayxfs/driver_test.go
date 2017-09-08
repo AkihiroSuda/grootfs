@@ -1092,6 +1092,16 @@ var _ = Describe("Driver", func() {
 			Expect(meta).To(Equal(base_image_puller.VolumeMeta{Size: 1024}))
 		})
 	})
+
+	Describe("VolumeSize", func() {
+		It("returns the volume size", func() {
+			volumeID := randVolumeID()
+			createVolume(driver, "parent-id", volumeID, 3000000)
+			size, err := driver.VolumeSize(logger, volumeID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(size).To(BeEquivalentTo(3000000))
+		})
+	})
 })
 
 func randVolumeID() string {
