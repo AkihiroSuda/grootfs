@@ -18,6 +18,7 @@ import (
 	"code.cloudfoundry.org/grootfs/store"
 	"code.cloudfoundry.org/grootfs/store/filesystems"
 	quotapkg "code.cloudfoundry.org/grootfs/store/filesystems/overlayxfs/quota"
+	"code.cloudfoundry.org/grootfs/store/filesystems/spec"
 	"code.cloudfoundry.org/grootfs/store/image_cloner"
 	"code.cloudfoundry.org/lager"
 	errorspkg "github.com/pkg/errors"
@@ -181,10 +182,35 @@ func (d *Driver) DestroyVolume(logger lager.Logger, id string) error {
 		logger.Error("deleting-metadata-file-failed", err, lager.Data{"path": d.volumeMetaFilePath(id)})
 	}
 
-	if err := os.RemoveAll(volumePath); err != nil {
+	if err := forcefulRemovePath(volumePath); err != nil {
 		logger.Error(fmt.Sprintf("failed to destroy volume %s", volumePath), err)
 		return errorspkg.Wrapf(err, "destroying volume (%s)", id)
 	}
+	return nil
+}
+
+func forcefulRemovePath(path string) (err error) {
+	if err = os.RemoveAll(path); err == nil {
+		return nil
+	}
+
+	if os.IsPermission(err) {
+		err = rmPath(path)
+	}
+
+	return
+}
+
+func rmPath(path string) error {
+	outBuffer := bytes.NewBuffer([]byte{})
+
+	rmCmd := exec.Command("rm", "-rf", path)
+	rmCmd.Stdout = outBuffer
+	rmCmd.Stderr = outBuffer
+	if err := rmCmd.Run(); err != nil {
+		return errorspkg.Wrapf(err, "removing path %s", path)
+	}
+
 	return nil
 }
 
@@ -609,6 +635,18 @@ func (d *Driver) FetchStats(logger lager.Logger, imagePath string) (groot.Volume
 	}
 
 	return stats, nil
+}
+
+func (d *Driver) Marshal(logger lager.Logger) ([]byte, error) {
+	driverSpec := spec.DriverSpec{
+		Type:           "overlay-xfs",
+		StorePath:      d.storePath,
+		FsBinaryPath:   "",
+		MkfsBinaryPath: "",
+		SuidBinaryPath: d.tardisBinPath,
+	}
+
+	return json.Marshal(driverSpec)
 }
 
 func (d *Driver) volumeSize(logger lager.Logger, id string) (int64, error) {

@@ -31,6 +31,18 @@ type VolumeDriver interface {
 	Volumes(logger lager.Logger) ([]string, error)
 }
 
+// type X struct{
+// 	driver VolumeDriver
+// }
+
+// func (x *X) VolumePath() {
+// 	return x.driver.VolumePath
+// }
+
+// func (x *X) DestroyVolume() {
+// 	reexec...
+// }
+
 type GarbageCollector struct {
 	volumeDriver      VolumeDriver
 	imageCloner       ImageCloner

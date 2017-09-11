@@ -22,6 +22,7 @@ import (
 	storepkg "code.cloudfoundry.org/grootfs/store"
 	"code.cloudfoundry.org/grootfs/store/dependency_manager"
 	"code.cloudfoundry.org/grootfs/store/filesystems/overlayxfs"
+	"code.cloudfoundry.org/grootfs/store/filesystems/reexecutable"
 	"code.cloudfoundry.org/grootfs/store/garbage_collector"
 	"code.cloudfoundry.org/grootfs/store/image_cloner"
 	locksmithpkg "code.cloudfoundry.org/grootfs/store/locksmith"
@@ -146,13 +147,15 @@ var CreateCommand = cli.Command{
 			Name:               cfg.FSDriver,
 			WhiteoutDevicePath: filepath.Join(storePath, overlayxfs.WhiteoutDevice),
 		}
+
+		var idMapper unpackerpkg.IDMapper
 		if os.Getuid() == 0 {
 			unpacker, err = unpackerpkg.NewTarUnpacker(unpackerStrategy)
 			if err != nil {
 				return newExitError(err.Error(), 1)
 			}
 		} else {
-			idMapper := unpackerpkg.NewIDMapper(cfg.NewuidmapBin, cfg.NewgidmapBin, runner)
+			idMapper = unpackerpkg.NewIDMapper(cfg.NewuidmapBin, cfg.NewgidmapBin, runner)
 			unpacker = unpackerpkg.NewNSIdMapperUnpacker(runner, idMapper, unpackerStrategy)
 		}
 
@@ -164,18 +167,20 @@ var CreateCommand = cli.Command{
 		dependencyManager := dependency_manager.NewDependencyManager(
 			filepath.Join(storePath, storepkg.MetaDirName, "dependencies"),
 		)
+
+		reexecutableFsDriver := reexecutable.New(fsDriver, idMappings, idMapper, runner)
 		baseImagePuller := base_image_puller.NewBaseImagePuller(
 			tarFetcher,
 			layerFetcher,
 			unpacker,
-			fsDriver,
+			reexecutableFsDriver,
 			dependencyManager,
 			metricsEmitter,
 			exclusiveLocksmith,
 		)
 
 		sm := storepkg.NewStoreMeasurer(storePath)
-		gc := garbage_collector.NewGC(fsDriver, imageCloner, dependencyManager)
+		gc := garbage_collector.NewGC(reexecutableFsDriver, imageCloner, dependencyManager)
 		cleaner := groot.IamCleaner(exclusiveLocksmith, sm, gc, metricsEmitter)
 
 		creator := groot.IamCreator(
