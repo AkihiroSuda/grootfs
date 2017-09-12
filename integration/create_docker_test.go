@@ -183,7 +183,7 @@ var _ = Describe("Create with remote DOCKER images", func() {
 					}
 				}()
 
-				deadline := time.Now().Add(60 * time.Second)
+				deadline := time.Now().Add(180 * time.Second)
 				for {
 					if sess.ExitCode() != -1 {
 						break
