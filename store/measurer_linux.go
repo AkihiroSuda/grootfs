@@ -58,6 +58,10 @@ func (s *StoreMeasurer) Size(logger lager.Logger) (int64, error) {
 	return total, nil
 }
 
+func (s *StoreMeasurer) CommittedSize(logger lager.Logger) (int64, error) {
+	return 0, nil
+}
+
 func (s *StoreMeasurer) Cache(logger lager.Logger) (int64, error) {
 	logger = logger.Session("measuring-cache", lager.Data{"storePath": s.storePath})
 	logger.Debug("starting")

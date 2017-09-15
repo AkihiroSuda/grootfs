@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -367,25 +368,26 @@ var _ = Describe("Driver", func() {
 				Expect(filepath.Join(spec.ImagePath, "image_info")).ToNot(BeAnExistingFile())
 				_, err := driver.CreateImage(logger, spec)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(filepath.Join(spec.ImagePath, "image_info")).To(BeAnExistingFile())
 
-				contents, err := ioutil.ReadFile(filepath.Join(spec.ImagePath, "image_info"))
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(string(contents)).To(Equal("5000"))
+				ensureFileContains(filepath.Join(spec.ImagePath, "image_info"), "5000")
 			})
 		})
 
-		It("doesn't apply any quota", func() {
-			spec.DiskLimit = 0
-			_, err := driver.CreateImage(logger, spec)
-			Expect(err).ToNot(HaveOccurred())
+		Context("when disk limit is > 0", func() {
+			BeforeEach(func() {
+				spec.DiskLimit = 0
+			})
 
-			Expect(logger).To(ContainSequence(
-				Debug(
-					Message("overlay+xfs.overlayxfs-creating-image.applying-quotas.no-need-for-quotas"),
-				),
-			))
+			It("doesn't apply any quota", func() {
+				_, err := driver.CreateImage(logger, spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(logger).To(ContainSequence(
+					Debug(
+						Message("overlay+xfs.overlayxfs-creating-image.applying-quotas.no-need-for-quotas"),
+					),
+				))
+			})
 		})
 
 		Context("when disk limit is > 0", func() {
@@ -468,6 +470,14 @@ var _ = Describe("Driver", func() {
 					})
 				})
 
+				It("creates a image quota file containing the requested quota", func() {
+					Expect(filepath.Join(spec.ImagePath, "image_quota")).ToNot(BeAnExistingFile())
+					_, err := driver.CreateImage(logger, spec)
+					Expect(err).ToNot(HaveOccurred())
+
+					ensureFileContains(filepath.Join(spec.ImagePath, "image_quota"), strconv.FormatInt(1024*1024*10-3145728, 10))
+				})
+
 			})
 
 			Context("exclusive quota", func() {
@@ -499,6 +509,14 @@ var _ = Describe("Driver", func() {
 					Eventually(sess, 5*time.Second).Should(gexec.Exit(1))
 					Eventually(sess.Err).Should(gbytes.Say("No space left on device"))
 				})
+
+				It("creates a image quota file containing the requested quota", func() {
+					Expect(filepath.Join(spec.ImagePath, "image_quota")).ToNot(BeAnExistingFile())
+					_, err := driver.CreateImage(logger, spec)
+					Expect(err).ToNot(HaveOccurred())
+
+					ensureFileContains(filepath.Join(spec.ImagePath, "image_quota"), strconv.FormatInt(1024*1024*10, 10))
+				})
 			})
 
 			Context("when tardis is not in the path", func() {
@@ -509,6 +527,11 @@ var _ = Describe("Driver", func() {
 				It("returns an error", func() {
 					_, err := driver.CreateImage(logger, spec)
 					Expect(err).To(MatchError(ContainSubstring("tardis was not found in the $PATH")))
+				})
+
+				It("does not write quota info", func() {
+					driver.CreateImage(logger, spec)
+					Expect(filepath.Join(spec.ImagePath, "image_quota")).ToNot(BeAnExistingFile())
 				})
 			})
 
@@ -658,8 +681,8 @@ var _ = Describe("Driver", func() {
 			stats, err := driver.FetchStats(logger, spec.ImagePath)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(stats.DiskUsage.ExclusiveBytesUsed).To(Equal(int64(4198400)))
-			Expect(stats.DiskUsage.TotalBytesUsed).To(Equal(int64(3000000 + 4198400)))
+			Expect(stats.DiskUsage.ExclusiveBytesUsed).To(Equal(int64(4202496)))
+			Expect(stats.DiskUsage.TotalBytesUsed).To(Equal(int64(3000000 + 4202496)))
 		})
 
 		Context("when path does not exist", func() {
@@ -1132,4 +1155,13 @@ func createVolume(storePath string, driver *overlayxfs.Driver, parentID, id stri
 	Expect(ioutil.WriteFile(metaFilePath, []byte(metaContents), 0644)).To(Succeed())
 
 	return path
+}
+
+func ensureFileContains(fileName, expectedContent string) {
+	Expect(fileName).To(BeAnExistingFile())
+
+	contents, err := ioutil.ReadFile(fileName)
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect(string(contents)).To(Equal(expectedContent))
 }

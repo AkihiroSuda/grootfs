@@ -87,6 +87,23 @@ var _ = Describe("Measurer", func() {
 		})
 	})
 
+	Describe("CommittedSize", func() {
+		It("returns the committed size of the store", func() {
+			image1Path := filepath.Join(storePath, store.ImageDirName, "my-image")
+			Expect(os.MkdirAll(image1Path, 0744)).To(Succeed())
+			Expect(ioutil.WriteFile(filepath.Join(image1Path, "image_quota"), []byte("1024"), 0777)).To(Succeed())
+
+			image2Path := filepath.Join(storePath, store.ImageDirName, "my-image")
+			Expect(os.MkdirAll(image2Path, 0744)).To(Succeed())
+			Expect(ioutil.WriteFile(filepath.Join(image2Path, "image_quota"), []byte("1024"), 0777)).To(Succeed())
+
+			committedSize, err := storeMeasurer.CommittedSize(logger)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(committedSize).To(Equal(2048))
+		})
+	})
+
 	Describe("Cache", func() {
 		BeforeEach(func() {
 			volumeDriver.VolumesReturns([]string{"sha256:fake"}, nil)
