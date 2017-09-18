@@ -19,13 +19,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("Stats", func() {
 	var (
 		sourceImagePath string
 		baseImagePath   string
-		image           groot.ImageInfo
+		image           specs.Spec
 		imageID         string
 	)
 
@@ -80,7 +81,7 @@ var _ = Describe("Stats", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 
-			writeFileCmdLine := fmt.Sprintf("dd if=/dev/zero of=%s bs=1048576 count=4", filepath.Join(image.Rootfs, "hello"))
+			writeFileCmdLine := fmt.Sprintf("dd if=/dev/zero of=%s bs=1048576 count=4", filepath.Join(image.Root.Path, "hello"))
 
 			var cmd *exec.Cmd
 			if image.Mounts != nil {
@@ -116,7 +117,7 @@ var _ = Describe("Stats", func() {
 
 		Context("when the last parameter is the image path", func() {
 			It("returns the stats for given image path", func() {
-				stats, err := Runner.Stats(image.Path)
+				stats, err := Runner.Stats(filepath.Dir(image.Root.Path))
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(stats.DiskUsage.TotalBytesUsed).To(
@@ -180,7 +181,7 @@ var _ = Describe("Stats", func() {
 	})
 })
 
-func unshareWithMount(cmdLine string, mount groot.MountInfo) *exec.Cmd {
+func unshareWithMount(cmdLine string, mount specs.Mount) *exec.Cmd {
 	mountOptions := strings.Join(mount.Options, ",")
 	mountCmdLine := fmt.Sprintf("mount -t %s %s -o%s %s", mount.Type, mount.Source, mountOptions, mount.Destination)
 

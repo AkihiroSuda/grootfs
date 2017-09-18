@@ -70,7 +70,7 @@ var _ = Describe("Create with local TAR images", func() {
 
 		Expect(Runner.EnsureMounted(image)).To(Succeed())
 
-		imageContentPath := path.Join(image.Rootfs, "foo")
+		imageContentPath := path.Join(image.Root.Path, "foo")
 		Expect(imageContentPath).To(BeARegularFile())
 
 		fooContents, err := ioutil.ReadFile(imageContentPath)
@@ -83,7 +83,7 @@ var _ = Describe("Create with local TAR images", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(Runner.EnsureMounted(image)).To(Succeed())
 
-		permissiveFolderPath := path.Join(image.Rootfs, "permissive-folder")
+		permissiveFolderPath := path.Join(image.Root.Path, "permissive-folder")
 		stat, err := os.Stat(permissiveFolderPath)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(stat.Mode().Perm()).To(Equal(os.FileMode(0777)))
@@ -101,8 +101,8 @@ var _ = Describe("Create with local TAR images", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(ioutil.WriteFile(filepath.Join(image1.Rootfs, "new-file"), []byte("hello-world"), 0644)).To(Succeed())
-			Expect(filepath.Join(image2.Rootfs, "new-file")).NotTo(BeARegularFile())
+			Expect(ioutil.WriteFile(filepath.Join(image1.Root.Path, "new-file"), []byte("hello-world"), 0644)).To(Succeed())
+			Expect(filepath.Join(image2.Root.Path, "new-file")).NotTo(BeARegularFile())
 		})
 	})
 
@@ -123,7 +123,7 @@ var _ = Describe("Create with local TAR images", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(Runner.EnsureMounted(image)).To(Succeed())
 
-			imageOldFilePath := path.Join(image.Rootfs, "old-file")
+			imageOldFilePath := path.Join(image.Root.Path, "old-file")
 			fi, err := os.Stat(imageOldFilePath)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(fi.ModTime().Unix()).To(Equal(modTime.Unix()))
@@ -245,9 +245,9 @@ var _ = Describe("Create with local TAR images", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(Runner.EnsureMounted(image)).To(Succeed())
 
-			imageContentPath := path.Join(image.Rootfs, "foo")
+			imageContentPath := path.Join(image.Root.Path, "foo")
 			Expect(imageContentPath).To(BeARegularFile())
-			barImageContentPath := path.Join(image.Rootfs, "bar")
+			barImageContentPath := path.Join(image.Root.Path, "bar")
 			Expect(barImageContentPath).To(BeARegularFile())
 		})
 	})
@@ -284,8 +284,8 @@ var _ = Describe("Create with local TAR images", func() {
 			})
 			Expect(Runner.EnsureMounted(image)).To(Succeed())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(path.Join(image.Rootfs, "foo")).To(BeARegularFile())
-			Expect(path.Join(image.Rootfs, "injected-file")).To(BeARegularFile())
+			Expect(path.Join(image.Root.Path, "foo")).To(BeARegularFile())
+			Expect(path.Join(image.Root.Path, "injected-file")).To(BeARegularFile())
 		})
 	})
 
@@ -332,12 +332,12 @@ var _ = Describe("Create with local TAR images", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(Runner.EnsureMounted(image)).To(Succeed())
-			grootFi, err := os.Stat(path.Join(image.Rootfs, "foo"))
+			grootFi, err := os.Stat(path.Join(image.Root.Path, "foo"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(grootFi.Sys().(*syscall.Stat_t).Uid).To(Equal(uint32(GrootUID + 99999)))
 			Expect(grootFi.Sys().(*syscall.Stat_t).Gid).To(Equal(uint32(GrootGID + 99999)))
 
-			rootFi, err := os.Stat(path.Join(image.Rootfs, "bar"))
+			rootFi, err := os.Stat(path.Join(image.Root.Path, "bar"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rootFi.Sys().(*syscall.Stat_t).Uid).To(Equal(uint32(GrootUID)))
 			Expect(rootFi.Sys().(*syscall.Stat_t).Gid).To(Equal(uint32(GrootGID)))
@@ -348,7 +348,7 @@ var _ = Describe("Create with local TAR images", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(Runner.EnsureMounted(image)).To(Succeed())
 
-			prohibitedFolderPath := path.Join(image.Rootfs, "prohibited-folder")
+			prohibitedFolderPath := path.Join(image.Root.Path, "prohibited-folder")
 			stat, err := os.Stat(prohibitedFolderPath)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(stat.Mode().Perm()).To(Equal(os.FileMode(0700)))
@@ -374,7 +374,7 @@ var _ = Describe("Create with local TAR images", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(Runner.EnsureMounted(image)).To(Succeed())
 
-			content, err := ioutil.ReadFile(filepath.Join(image.Rootfs, "symlink"))
+			content, err := ioutil.ReadFile(filepath.Join(image.Root.Path, "symlink"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(content)).To(Equal("hello-world"))
 		})
@@ -392,11 +392,11 @@ var _ = Describe("Create with local TAR images", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(Runner.EnsureMounted(image)).To(Succeed())
 
-				symlinkTargetFilePath := path.Join(image.Rootfs, "symlink-target")
+				symlinkTargetFilePath := path.Join(image.Root.Path, "symlink-target")
 				symlinkTargetFi, err := os.Stat(symlinkTargetFilePath)
 				Expect(err).NotTo(HaveOccurred())
 
-				symlinkFilePath := path.Join(image.Rootfs, "symlink")
+				symlinkFilePath := path.Join(image.Root.Path, "symlink")
 				symlinkFi, err := os.Lstat(symlinkFilePath)
 				Expect(err).NotTo(HaveOccurred())
 

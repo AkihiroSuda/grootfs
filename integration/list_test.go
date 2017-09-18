@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 
 	yaml "gopkg.in/yaml.v2"
 
@@ -14,10 +15,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("List", func() {
-	var image groot.ImageInfo
+	var image specs.Spec
 
 	BeforeEach(func() {
 		sourceImagePath, err := ioutil.TempDir("", "")
@@ -37,7 +39,7 @@ var _ = Describe("List", func() {
 		images, err := Runner.List()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(images).To(HaveLen(1))
-		Expect(images[0].Path).To(Equal(image.Path))
+		Expect(images[0].Path).To(Equal(filepath.Dir(image.Root.Path)))
 	})
 
 	Describe("--config global flag", func() {
@@ -73,7 +75,7 @@ var _ = Describe("List", func() {
 				_, err := Runner.WithoutStore().WithConfig(configFilePath).WithStdout(outBuffer).List()
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(outBuffer).To(gbytes.Say(image.Path))
+				Expect(outBuffer).To(gbytes.Say(filepath.Dir(image.Root.Path)))
 			})
 		})
 	})
@@ -90,7 +92,7 @@ var _ = Describe("List", func() {
 
 	Context("when there are no existing images", func() {
 		BeforeEach(func() {
-			_ = Runner.Delete(image.Path)
+			_ = Runner.Delete(filepath.Dir(image.Root.Path))
 		})
 
 		It("returns an informative message", func() {

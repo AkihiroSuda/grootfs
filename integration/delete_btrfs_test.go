@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("Delete (btrfs only)", func() {
@@ -31,7 +32,8 @@ var _ = Describe("Delete (btrfs only)", func() {
 		integration.SkipIfNotBTRFS(Driver)
 	})
 
-	createUniqueImage := func(baseImagePath string) (imageId string, image groot.ImageInfo) {
+	// TOOD: image is not a good name
+	createUniqueImage := func(baseImagePath string) (imageId string, image specs.Spec) {
 		imageId = fmt.Sprintf("image-%d", atomic.AddUint32(&nextUniqueImageIndex, 1))
 		image, err := Runner.Create(groot.CreateSpec{
 			BaseImage: baseImagePath,
@@ -43,7 +45,8 @@ var _ = Describe("Delete (btrfs only)", func() {
 		return
 	}
 
-	withUniqueImage := func(testFunc func(imageId string, image groot.ImageInfo)) {
+	// TOOD: image is not a good name
+	withUniqueImage := func(testFunc func(imageId string, image specs.Spec)) {
 		sourceImagePath, err := ioutil.TempDir("", "")
 		Expect(err).NotTo(HaveOccurred())
 		defer func() { Expect(os.RemoveAll(sourceImagePath)).To(Succeed()) }()
@@ -58,9 +61,9 @@ var _ = Describe("Delete (btrfs only)", func() {
 	}
 
 	It("destroys the quota group associated with the volume", func() {
-		withUniqueImage(func(imageId string, image groot.ImageInfo) {
+		withUniqueImage(func(imageId string, image specs.Spec) {
 			rootIDBuffer := gbytes.NewBuffer()
-			sess, err := gexec.Start(exec.Command("sudo", "btrfs", "inspect-internal", "rootid", image.Rootfs), rootIDBuffer, GinkgoWriter)
+			sess, err := gexec.Start(exec.Command("sudo", "btrfs", "inspect-internal", "rootid", image.Root.Path), rootIDBuffer, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(sess, 5*time.Second).Should(gexec.Exit(0))
 			rootID := strings.TrimSpace(string(rootIDBuffer.Contents()))
@@ -80,8 +83,8 @@ var _ = Describe("Delete (btrfs only)", func() {
 	})
 
 	It("can delete a rootfs with nested btrfs subvolumes", func() {
-		withUniqueImage(func(imageId string, image groot.ImageInfo) {
-			cmd := exec.Command("btrfs", "sub", "create", filepath.Join(image.Rootfs, "subvolume"))
+		withUniqueImage(func(imageId string, image specs.Spec) {
+			cmd := exec.Command("btrfs", "sub", "create", filepath.Join(image.Root.Path, "subvolume"))
 			cmd.SysProcAttr = &syscall.SysProcAttr{
 				Credential: &syscall.Credential{
 					Uid: uint32(GrootfsTestUid),
@@ -92,7 +95,7 @@ var _ = Describe("Delete (btrfs only)", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(sess, 5*time.Second).Should(gexec.Exit(0))
 
-			cmd = exec.Command("btrfs", "sub", "snapshot", filepath.Join(image.Rootfs, "subvolume"), filepath.Join(image.Rootfs, "snapshot"))
+			cmd = exec.Command("btrfs", "sub", "snapshot", filepath.Join(image.Root.Path, "subvolume"), filepath.Join(image.Root.Path, "snapshot"))
 			cmd.SysProcAttr = &syscall.SysProcAttr{
 				Credential: &syscall.Credential{
 					Uid: uint32(GrootfsTestUid),
@@ -103,14 +106,15 @@ var _ = Describe("Delete (btrfs only)", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(sess, 5*time.Second).Should(gexec.Exit(0))
 
-			Expect(image.Rootfs).To(BeAnExistingFile())
+			Expect(image.Root.Path).To(BeAnExistingFile())
 			Expect(Runner.Delete(imageId)).To(Succeed())
-			Expect(image.Rootfs).ToNot(BeAnExistingFile())
+			Expect(image.Root.Path).ToNot(BeAnExistingFile())
 		})
 	})
 
+	// TODO: image is not a good name
 	It("returns a warning when drax is not in the PATH", func() {
-		withUniqueImage(func(imageId string, image groot.ImageInfo) {
+		withUniqueImage(func(imageId string, image specs.Spec) {
 			errBuffer := gbytes.NewBuffer()
 			outBuffer := gbytes.NewBuffer()
 			err := Runner.WithoutDraxBin().
