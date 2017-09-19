@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/grootfs/store/filesystems/btrfs"
 	"code.cloudfoundry.org/grootfs/store/filesystems/overlayxfs"
 	"code.cloudfoundry.org/grootfs/store/filesystems/spec"
+	"code.cloudfoundry.org/grootfs/store/image_cloner"
 	"code.cloudfoundry.org/lager"
 	"github.com/containers/storage/pkg/reexec"
 	"github.com/pkg/errors"
@@ -31,6 +32,9 @@ type internalDriver interface {
 	WriteVolumeMeta(logger lager.Logger, id string, data base_image_puller.VolumeMeta) error
 
 	Marshal(logger lager.Logger) ([]byte, error)
+	CreateImage(logger lager.Logger, spec image_cloner.ImageDriverSpec) (groot.MountInfo, error)
+	DestroyImage(logger lager.Logger, path string) error
+	FetchStats(logger lager.Logger, path string) (groot.VolumeStats, error)
 }
 
 type Driver struct {
@@ -49,10 +53,57 @@ func New(driver internalDriver, idMappings groot.IDMappings, idMapper unpacker.I
 	}
 }
 
+func (d *Driver) CreateImage(logger lager.Logger, spec image_cloner.ImageDriverSpec) (groot.MountInfo, error) {
+	return d.driver.CreateImage(logger, spec)
+}
+
+func (d *Driver) DestroyImage(logger lager.Logger, path string) error {
+	// d.driver -> json
+	cmd := reexec.Command("destroy-image", driverSpec, path)
+	cmd.Stderr = lagregator.NewRelogger(logger)
+	cmd.Stdout = lagregator.NewRelogger(logger)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWUSER,
+	}
+	if err := d.runner.Run(cmd); err != nil {
+		return errors.Wrap(err, "reexecing destroy image")
+	}
+	return nil
+}
+
+func (d *Driver) FetchStats(logger lager.Logger, path string) (groot.VolumeStats, error) {
+	return d.driver.FetchStats(logger, path)
+}
+
 func init() {
 	if reexec.Init() {
 		os.Exit(0)
 	}
+
+	reexec.Register("destroy-image", func() {
+		cli.ErrWriter = os.Stdout
+		logger := lager.NewLogger("destroy-images")
+		logger.RegisterSink(lager.NewWriterSink(os.Stderr, lager.DEBUG))
+
+		var driverSpec spec.DriverSpec
+		if err := json.Unmarshal([]byte(os.Args[1]), &driverSpec); err != nil {
+			logger.Error("unmarshalling driver spec", err)
+			os.Exit(1)
+		}
+
+		path := os.Args[2]
+
+		driver, err := specToDriver(driverSpec)
+		if err != nil {
+			logger.Error("creating fsdriver", err)
+			os.Exit(1)
+		}
+
+		if err := driver.DestroyImage(logger, path); err != nil {
+			logger.Error("destroying volume", err)
+			os.Exit(1)
+		}
+	})
 
 	reexec.Register("destroy-volume", func() {
 		cli.ErrWriter = os.Stdout

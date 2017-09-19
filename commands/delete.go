@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"code.cloudfoundry.org/commandrunner/linux_command_runner"
+	unpackerpkg "code.cloudfoundry.org/grootfs/base_image_puller/unpacker"
 	"code.cloudfoundry.org/grootfs/commands/config"
 	"code.cloudfoundry.org/grootfs/commands/idfinder"
 	"code.cloudfoundry.org/grootfs/groot"
 	"code.cloudfoundry.org/grootfs/metrics"
 	"code.cloudfoundry.org/grootfs/store"
 	"code.cloudfoundry.org/grootfs/store/dependency_manager"
+	"code.cloudfoundry.org/grootfs/store/filesystems/namespaced"
 	"code.cloudfoundry.org/grootfs/store/image_cloner"
 	"code.cloudfoundry.org/lager"
 	errorspkg "github.com/pkg/errors"
@@ -54,7 +57,13 @@ var DeleteCommand = cli.Command{
 			return newExitError(err.Error(), 1)
 		}
 
-		imageCloner := image_cloner.NewImageCloner(fsDriver, storePath)
+		storeNamespacer := groot.NewStoreNamespacer(storePath)
+		idMappings, _ := storeNamespacer.Read()
+		runner := linux_command_runner.New()
+		idMapper := unpackerpkg.NewIDMapper(cfg.NewuidmapBin, cfg.NewgidmapBin, runner)
+		nsFsDriver := namespaced.New(fsDriver, idMappings, idMapper, runner)
+
+		imageCloner := image_cloner.NewImageCloner(nsFsDriver, storePath)
 		dependencyManager := dependency_manager.NewDependencyManager(
 			filepath.Join(storePath, store.MetaDirName, "dependencies"),
 		)
