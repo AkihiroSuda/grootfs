@@ -42,7 +42,7 @@ var (
 )
 
 const btrfsMountPath = "/mnt/btrfs-%d"
-const xfsMountPath = "/var/vcap/data/grootfs/store/privileged"
+var xfsMountPath = os.Getenv("STORE")
 
 func TestGroot(t *testing.T) {
 	var (
@@ -96,6 +96,9 @@ func TestGroot(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		Driver = os.Getenv("VOLUME_DRIVER")
+		if Driver != "overlay-xfs" {
+			Fail("Driver should be overlay-xfs")
+                }
 
 		GrootfsTestUid, _ = strconv.Atoi(os.Getenv("GROOTFS_TEST_UID"))
 		GrootfsTestGid, _ = strconv.Atoi(os.Getenv("GROOTFS_TEST_GID"))

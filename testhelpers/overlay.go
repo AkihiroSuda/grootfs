@@ -36,6 +36,8 @@ func CleanUpExternalLogDevice(externalLogPath string) {
 func CleanUpOverlayMounts(mountPath string) {
 	var mountPoints []string
 
+	Expect(exec.Command("/bin/bash", "-c", "for m in $(cat /proc/mounts | grep overlay | cut -d ' ' -f 2); do umount $m; done").Run()).To(Succeed())
+
 	for i := 0; i < 10; i++ {
 		mountPoints = internalMountPoints(mountPath)
 		if len(mountPoints) != 0 {

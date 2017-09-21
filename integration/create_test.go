@@ -30,7 +30,7 @@ const (
 	rootGID      = 0
 )
 
-var _ = Describe("Create", func() {
+var _ = FDescribe("Create", func() {
 	var (
 		randomImageID   string
 		baseImagePath   string
@@ -52,7 +52,7 @@ var _ = Describe("Create", func() {
 		baseImagePath = baseImageFile.Name()
 	})
 
-	FIt("keeps the ownership and permissions", func() {
+	It("keeps the ownership and permissions", func() {
 		integration.SkipIfNonRoot(GrootfsTestUid)
 
 		containerSpec, err := Runner.Create(groot.CreateSpec{
