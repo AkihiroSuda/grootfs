@@ -8,8 +8,6 @@ import (
 	"path"
 	"path/filepath"
 	"syscall"
-	"strconv"
-	"time"
 
 	"code.cloudfoundry.org/grootfs/commands/config"
 	"code.cloudfoundry.org/grootfs/groot"
@@ -161,20 +159,19 @@ var _ = Describe("Create", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(Runner.EnsureMounted(containerSpec)).To(Succeed())
 
-                        Expect(exec.Command("mkdir", "-p", filepath.Join(containerSpec.Root.Path, "bin")).Run()).To(Succeed())                         
-                        Expect(exec.Command("mount",  "--bind", "/bin", filepath.Join(containerSpec.Root.Path, "bin")).Run()).To(Succeed())                         
+		        listRootfsCmd := exec.Command("ls", filepath.Join(containerSpec.Root.Path, "root-folder" ))
+		        listRootfsCmd.SysProcAttr = &syscall.SysProcAttr{
+			       Credential: &syscall.Credential{
+				       Uid: uint32(GrootUID),
+				       Gid: uint32(GrootGID),
+			       },
+		        }
+
+		        sess, err := gexec.Start(listRootfsCmd, GinkgoWriter, GinkgoWriter)
+		        Expect(err).NotTo(HaveOccurred())
+		        Eventually(sess).Should(gexec.Exit(0))
 
 
-			cmd := exec.Command(NamespacerBin, containerSpec.Root.Path, strconv.Itoa(GrootUID+0), "/bin/ls", "/root-folder")
-			cmd.SysProcAttr = &syscall.SysProcAttr{
-				Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS,
-			}
-			sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).NotTo(HaveOccurred())
-			Eventually(sess, 5*time.Second).Should(gexec.Exit(0))
-
-                        Expect(exec.Command("umount", "-l",  filepath.Join(containerSpec.Root.Path, "bin")).Run()).To(Succeed())                         
-                        Expect(exec.Command("rm, "-rf",  filepath.Join(containerSpec.Root.Path, "bin")).Run()).To(Succeed())                         
 		})
 	})
 

@@ -227,10 +227,10 @@ func (m *Manager) createAndMountFilesystem(logger lager.Logger, storeSizeBytes i
 		return errorspkg.Wrap(err, "initializing store")
 	}
 
-	if err := os.Chmod(m.storePath, 0711); err != nil {
-	  logger.Error("init-store-chmod-failed", err)
-	  return errorspkg.Wrap(err, "initializing store")
-	}
+	//if err := os.Chmod(m.storePath, 0711); err != nil {
+	//  logger.Error("init-store-chmod-failed", err)
+	//  return errorspkg.Wrap(err, "initializing store")
+	//}
 
 	if err := m.storeDriver.InitFilesystem(logger, backingStoreFile, m.storePath); err != nil {
 		logger.Error("initializing-filesystem-failed", err, lager.Data{"backingstoreFile": backingStoreFile})

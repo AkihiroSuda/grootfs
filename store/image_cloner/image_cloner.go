@@ -236,7 +236,7 @@ func (b *ImageCloner) setOwnership(spec groot.ImageSpec, paths ...string) error 
 		if err := os.Chown(path, spec.OwnerUID, spec.OwnerGID); err != nil {
 			return errorspkg.Wrapf(err, "changing %s ownership to %d:%d", path, spec.OwnerUID, spec.OwnerGID)
 		}
-		os.Chmod(path, 0755)
+		//os.Chmod(path, 0755)
 	}
 	return nil
 }
