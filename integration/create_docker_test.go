@@ -34,7 +34,7 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-var _ = Describe("Create with remote DOCKER images", func() {
+var _ = FDescribe("Create with remote DOCKER images", func() {
 	var (
 		randomImageID string
 		baseImageURL  string
@@ -76,7 +76,7 @@ var _ = Describe("Create with remote DOCKER images", func() {
 			Expect(path.Join(containerSpec.Root.Path, "layer-1-file")).To(BeARegularFile())
 		})
 
-		It("gives any user permission to be inside the container", func() {
+		FIt("gives any user permission to be inside the container", func() {
 			containerSpec, err := runner.Create(groot.CreateSpec{
 				BaseImage: "docker:///cfgarden/garden-busybox",
 				ID:        randomImageID,
@@ -84,6 +84,8 @@ var _ = Describe("Create with remote DOCKER images", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(runner.EnsureMounted(containerSpec)).To(Succeed())
+
+                        //time.Sleep(time.Hour)
 
 			cmd := exec.Command(NamespacerBin, containerSpec.Root.Path, strconv.Itoa(GrootUID+100), "/bin/ls", "/")
 			cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -407,7 +409,7 @@ var _ = Describe("Create with remote DOCKER images", func() {
 			})
 
 			Context("when the credentials are correct", func() {
-				It("succeeds", func() {
+				PIt("succeeds", func() {
 					runner := runner.WithCredentials(RegistryUsername, RegistryPassword)
 					containerSpec, err := runner.Create(groot.CreateSpec{
 						BaseImage: baseImageURL,
@@ -447,7 +449,7 @@ var _ = Describe("Create with remote DOCKER images", func() {
 				})
 			})
 
-			It("does not log the credentials OR their references", func() {
+			PIt("does not log the credentials OR their references", func() {
 				buffer := gbytes.NewBuffer()
 				runner := runner.WithCredentials(RegistryUsername, RegistryPassword).WithStderr(buffer).WithLogLevel(lager.DEBUG)
 				_, err := runner.Create(groot.CreateSpec{

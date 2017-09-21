@@ -8,6 +8,8 @@ import (
 	"path"
 	"path/filepath"
 	"syscall"
+	"strconv"
+	"time"
 
 	"code.cloudfoundry.org/grootfs/commands/config"
 	"code.cloudfoundry.org/grootfs/groot"
@@ -30,7 +32,7 @@ const (
 	rootGID      = 0
 )
 
-var _ = FDescribe("Create", func() {
+var _ = Describe("Create", func() {
 	var (
 		randomImageID   string
 		baseImagePath   string
@@ -149,7 +151,7 @@ var _ = FDescribe("Create", func() {
 			Expect(rootDir.Sys().(*syscall.Stat_t).Gid).To(Equal(uint32(GrootGID)))
 		})
 
-		It("allows the mapped user to have access to the created image", func() {
+		FIt("allows the mapped user to have access to the created image", func() {
 			containerSpec, err := Runner.WithLogLevel(lager.DEBUG).SkipInitStore().
 				Create(groot.CreateSpec{
 					Mount:     mountByDefault(),
@@ -159,17 +161,20 @@ var _ = FDescribe("Create", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(Runner.EnsureMounted(containerSpec)).To(Succeed())
 
-			listRootfsCmd := exec.Command("ls", filepath.Join(containerSpec.Root.Path, "root-folder"))
-			listRootfsCmd.SysProcAttr = &syscall.SysProcAttr{
-				Credential: &syscall.Credential{
-					Uid: uint32(GrootUID),
-					Gid: uint32(GrootGID),
-				},
-			}
+                        Expect(exec.Command("mkdir", "-p", filepath.Join(containerSpec.Root.Path, "bin")).Run()).To(Succeed())                         
+                        Expect(exec.Command("mount",  "--bind", "/bin", filepath.Join(containerSpec.Root.Path, "bin")).Run()).To(Succeed())                         
 
-			sess, err := gexec.Start(listRootfsCmd, GinkgoWriter, GinkgoWriter)
+
+			cmd := exec.Command(NamespacerBin, containerSpec.Root.Path, strconv.Itoa(GrootUID+0), "/bin/ls", "/root-folder")
+			cmd.SysProcAttr = &syscall.SysProcAttr{
+				Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS,
+			}
+			sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(sess).Should(gexec.Exit(0))
+			Eventually(sess, 5*time.Second).Should(gexec.Exit(0))
+
+                        Expect(exec.Command("umount", "-l",  filepath.Join(containerSpec.Root.Path, "bin")).Run()).To(Succeed())                         
+                        Expect(exec.Command("rm, "-rf",  filepath.Join(containerSpec.Root.Path, "bin")).Run()).To(Succeed())                         
 		})
 	})
 
@@ -373,7 +378,7 @@ var _ = FDescribe("Create", func() {
 		})
 	})
 
-	Context("when StorePath doesn't match the given driver", func() {
+	PContext("when StorePath doesn't match the given driver", func() {
 		var (
 			storePath string
 			runner    runner.Runner
