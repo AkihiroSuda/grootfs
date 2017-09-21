@@ -42,7 +42,7 @@ var (
 )
 
 const btrfsMountPath = "/mnt/btrfs-%d"
-const xfsMountPath = "/mnt/xfs-%d"
+const xfsMountPath = "/var/vcap/data/grootfs/store/privileged"
 
 func TestGroot(t *testing.T) {
 	var (
@@ -79,7 +79,7 @@ func TestGroot(t *testing.T) {
 		TardisBin = string(binaries[2])
 		tmpNamespacerBin := string(binaries[3])
 
-		GrootUser, err = user.Lookup("groot")
+		GrootUser, err = user.Lookup("vcap")
 		Expect(err).NotTo(HaveOccurred())
 
 		rand.Seed(time.Now().UnixNano())
@@ -112,7 +112,7 @@ func TestGroot(t *testing.T) {
 		testhelpers.ReseedRandomNumberGenerator()
 
 		if Driver == "overlay-xfs" {
-			mountPath = fmt.Sprintf(xfsMountPath, GinkgoParallelNode())
+			mountPath = xfsMountPath
 		} else {
 			Driver = "btrfs"
 			mountPath = fmt.Sprintf(btrfsMountPath, GinkgoParallelNode())

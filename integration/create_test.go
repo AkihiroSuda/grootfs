@@ -52,7 +52,7 @@ var _ = Describe("Create", func() {
 		baseImagePath = baseImageFile.Name()
 	})
 
-	It("keeps the ownership and permissions", func() {
+	FIt("keeps the ownership and permissions", func() {
 		integration.SkipIfNonRoot(GrootfsTestUid)
 
 		containerSpec, err := Runner.Create(groot.CreateSpec{
