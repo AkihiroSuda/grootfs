@@ -401,7 +401,7 @@ var _ = Describe("Create with remote DOCKER images", func() {
 			})
 		})
 
-		Context("when the image is private", func() {
+		XContext("when the image is private", func() {
 			BeforeEach(func() {
 				baseImageURL = "docker:///cfgarden/private"
 			})
@@ -684,6 +684,7 @@ var _ = Describe("Create with remote DOCKER images", func() {
 					configFilePath = path.Join(configDir, "config.yaml")
 
 					Expect(ioutil.WriteFile(configFilePath, configYaml, 0755)).To(Succeed())
+					Expect(os.Chmod(configFilePath, 0755)).To(Succeed())
 				})
 
 				AfterEach(func() {

@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -117,7 +116,7 @@ func TestGroot(t *testing.T) {
 			Driver = "btrfs"
 			mountPath = fmt.Sprintf(btrfsMountPath, GinkgoParallelNode())
 		}
-		StorePath = path.Join(mountPath, "store")
+		StorePath = "/mnt/xfs/store"
 
 		RegistryUsername = os.Getenv("REGISTRY_USERNAME")
 		RegistryPassword = os.Getenv("REGISTRY_PASSWORD")

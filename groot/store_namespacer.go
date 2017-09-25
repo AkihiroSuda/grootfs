@@ -81,6 +81,10 @@ func (n *StoreNamespacer) write(uidMappings, gidMappings []IDMappingSpec) error 
 		GIDMappings: n.normalizeMappings(gidMappings),
 	}
 
+	if err := os.Chown(n.namespaceFilePath(), 1003, 1003); err != nil {
+		return err
+	}
+
 	return json.NewEncoder(namespaceStore).Encode(namespace)
 }
 
@@ -102,6 +106,7 @@ func (n *StoreNamespacer) validateNamespace(namespaceFilePath string, uidMapping
 	if !reflect.DeepEqual(namespace.GIDMappings, n.normalizeMappings(gidMappings)) {
 		return errorspkg.New("provided GID mappings do not match those already configured in the store")
 	}
+
 
 	return nil
 }

@@ -13,10 +13,6 @@ mount_storage() {
   mount -tcgroup -omemory cgroup:memory /sys/fs/cgroup/memory
 
   # Setup loop devices
-  for i in {0..256}
-  do
-    mknod -m777 /dev/loop$i b 7 $i
-  done
 
   # Make and Mount EXT4 Volume
   mkdir /mnt/ext4

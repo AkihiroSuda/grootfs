@@ -420,13 +420,14 @@ var _ = Describe("Create", func() {
 		Describe("store path", func() {
 			BeforeEach(func() {
 				Expect(os.Mkdir(StorePath, 0755)).To(Succeed())
+				Expect(os.Chmod(StorePath, 0755)).To(Succeed())
 				var err error
 				cfg.StorePath, err = ioutil.TempDir(StorePath, "")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(os.Chmod(cfg.StorePath, 0777)).To(Succeed())
 			})
 
-			It("uses the store path from the config file", func() {
+			FIt("uses the store path from the config file", func() {
 				runner := Runner.WithoutStore()
 				containerSpec, err := runner.Create(spec)
 				Expect(err).NotTo(HaveOccurred())
