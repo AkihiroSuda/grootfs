@@ -15,7 +15,7 @@ const ImageReferenceFormat = "image:%s"
 
 type CreateSpec struct {
 	ID                          string
-	BaseImage                   string
+	BaseImageURL                *url.URL
 	DiskLimit                   int64
 	Mount                       bool
 	ExcludeBaseImageFromQuota   bool
@@ -56,11 +56,6 @@ func (c *Creator) Create(logger lager.Logger, spec CreateSpec) (ImageInfo, error
 	logger.Info("starting")
 	defer logger.Info("ending")
 
-	parsedURL, err := url.Parse(spec.BaseImage)
-	if err != nil {
-		return ImageInfo{}, errorspkg.Wrap(err, "parsing image url")
-	}
-
 	if strings.ContainsAny(spec.ID, "/") {
 		return ImageInfo{}, errorspkg.Errorf("id `%s` contains invalid characters: `/`", spec.ID)
 	}
@@ -75,7 +70,7 @@ func (c *Creator) Create(logger lager.Logger, spec CreateSpec) (ImageInfo, error
 
 	ownerUid, ownerGid := c.parseOwner(spec.UIDMappings, spec.GIDMappings)
 	baseImageSpec := BaseImageSpec{
-		BaseImageSrc:              parsedURL,
+		BaseImageSrc:              spec.BaseImageURL,
 		DiskLimit:                 spec.DiskLimit,
 		ExcludeBaseImageFromQuota: spec.ExcludeBaseImageFromQuota,
 		UIDMappings:               spec.UIDMappings,
@@ -85,7 +80,7 @@ func (c *Creator) Create(logger lager.Logger, spec CreateSpec) (ImageInfo, error
 	}
 
 	if spec.CleanOnCreate {
-		ignoredImages := append(spec.CleanOnCreateIgnoreImages, spec.BaseImage)
+		ignoredImages := append(spec.CleanOnCreateIgnoreImages, spec.BaseImageURL.String())
 		if _, err := c.cleaner.Clean(logger, spec.CleanOnCreateThresholdBytes, ignoredImages); err != nil {
 			return ImageInfo{}, errorspkg.Wrap(err, "failed-to-cleanup-store")
 		}

@@ -18,6 +18,7 @@ import (
 
 var _ = Describe("Creator", func() {
 	var (
+		baseImageUrl          *url.URL
 		fakeImageCloner       *grootfakes.FakeImageCloner
 		fakeBaseImagePuller   *grootfakes.FakeBaseImagePuller
 		fakeLocksmith         *grootfakes.FakeLocksmith
@@ -31,6 +32,8 @@ var _ = Describe("Creator", func() {
 	)
 
 	BeforeEach(func() {
+		baseImageUrl, _ = url.Parse("/path/to/image")
+
 		fakeImageCloner = new(grootfakes.FakeImageCloner)
 		fakeBaseImagePuller = new(grootfakes.FakeBaseImagePuller)
 		fakeLocksmith = new(grootfakes.FakeLocksmith)
@@ -64,7 +67,7 @@ var _ = Describe("Creator", func() {
 	Describe("Create", func() {
 		It("acquires the global lock", func() {
 			_, err := creator.Create(logger, groot.CreateSpec{
-				BaseImage: "/path/to/image",
+				BaseImageURL: baseImageUrl,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -75,7 +78,7 @@ var _ = Describe("Creator", func() {
 		Context("when clean up store is requested", func() {
 			It("cleans the store", func() {
 				_, err := creator.Create(logger, groot.CreateSpec{
-					BaseImage:                   "/path/to/image",
+					BaseImageURL:                baseImageUrl,
 					CleanOnCreate:               true,
 					CleanOnCreateIgnoreImages:   []string{"docker://my-image"},
 					CleanOnCreateThresholdBytes: int64(250000),
@@ -94,7 +97,7 @@ var _ = Describe("Creator", func() {
 
 				It("returns an error", func() {
 					_, err := creator.Create(logger, groot.CreateSpec{
-						BaseImage:     "/path/to/image",
+						BaseImageURL:  baseImageUrl,
 						CleanOnCreate: true,
 					})
 					Expect(err).To(MatchError(ContainSubstring("failed to clean up store")))
@@ -107,9 +110,9 @@ var _ = Describe("Creator", func() {
 			gidMappings := []groot.IDMappingSpec{groot.IDMappingSpec{HostID: 3, NamespaceID: 0, Size: 1}}
 
 			_, err := creator.Create(logger, groot.CreateSpec{
-				BaseImage:   "/path/to/image",
-				UIDMappings: uidMappings,
-				GIDMappings: gidMappings,
+				BaseImageURL: baseImageUrl,
+				UIDMappings:  uidMappings,
+				GIDMappings:  gidMappings,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -135,10 +138,10 @@ var _ = Describe("Creator", func() {
 			uidMappings := []groot.IDMappingSpec{groot.IDMappingSpec{HostID: 50, NamespaceID: 0, Size: 1}}
 			gidMappings := []groot.IDMappingSpec{groot.IDMappingSpec{HostID: 60, NamespaceID: 0, Size: 1}}
 			_, err := creator.Create(logger, groot.CreateSpec{
-				ID:          "some-id",
-				BaseImage:   "/path/to/image",
-				UIDMappings: uidMappings,
-				GIDMappings: gidMappings,
+				ID:           "some-id",
+				BaseImageURL: baseImageUrl,
+				UIDMappings:  uidMappings,
+				GIDMappings:  gidMappings,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -157,7 +160,7 @@ var _ = Describe("Creator", func() {
 
 		It("releases the global lock", func() {
 			_, err := creator.Create(logger, groot.CreateSpec{
-				BaseImage: "/path/to/image",
+				BaseImageURL: baseImageUrl,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -179,8 +182,8 @@ var _ = Describe("Creator", func() {
 
 		It("emits metrics for creation", func() {
 			_, err := creator.Create(logger, groot.CreateSpec{
-				ID:        "some-id",
-				BaseImage: "/path/to/image",
+				ID:           "some-id",
+				BaseImageURL: baseImageUrl,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -210,9 +213,9 @@ var _ = Describe("Creator", func() {
 					groot.IDMappingSpec{HostID: 61, NamespaceID: 1, Size: 300},
 				}
 				_, err := creator.Create(logger, groot.CreateSpec{
-					BaseImage:   "/path/to/image",
-					UIDMappings: uidMappings,
-					GIDMappings: gidMappings,
+					BaseImageURL: baseImageUrl,
+					UIDMappings:  uidMappings,
+					GIDMappings:  gidMappings,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -230,7 +233,7 @@ var _ = Describe("Creator", func() {
 			Context("when there's no root mapping", func() {
 				It("sets the current user as the store owner", func() {
 					_, err := creator.Create(logger, groot.CreateSpec{
-						BaseImage: "/path/to/image",
+						BaseImageURL: baseImageUrl,
 					})
 					Expect(err).NotTo(HaveOccurred())
 
@@ -247,24 +250,6 @@ var _ = Describe("Creator", func() {
 			})
 		})
 
-		Context("when the image is not a valid URL", func() {
-			It("returns an error", func() {
-				_, err := creator.Create(logger, groot.CreateSpec{
-					BaseImage: "%%!!#@!^&",
-				})
-				Expect(err).To(MatchError(ContainSubstring("parsing image url")))
-			})
-
-			It("does not create a image", func() {
-				_, err := creator.Create(logger, groot.CreateSpec{
-					BaseImage: "%%!!#@!^&",
-				})
-				Expect(err).To(HaveOccurred())
-
-				Expect(fakeImageCloner.CreateCallCount()).To(Equal(0))
-			})
-		})
-
 		Context("when the id already exists", func() {
 			BeforeEach(func() {
 				fakeImageCloner.ExistsReturns(true, nil)
@@ -272,8 +257,8 @@ var _ = Describe("Creator", func() {
 
 			It("returns an error", func() {
 				_, err := creator.Create(logger, groot.CreateSpec{
-					BaseImage: "/path/to/image",
-					ID:        "some-id",
+					BaseImageURL: baseImageUrl,
+					ID:           "some-id",
 				})
 				Expect(err).To(HaveOccurred())
 
@@ -283,8 +268,8 @@ var _ = Describe("Creator", func() {
 
 			It("does not pull the image", func() {
 				_, err := creator.Create(logger, groot.CreateSpec{
-					BaseImage: "/path/to/image",
-					ID:        "some-id",
+					BaseImageURL: baseImageUrl,
+					ID:           "some-id",
 				})
 				Expect(err).To(HaveOccurred())
 
@@ -300,7 +285,7 @@ var _ = Describe("Creator", func() {
 
 			It("returns an error", func() {
 				_, err := creator.Create(logger, groot.CreateSpec{
-					BaseImage: "/path/to/image",
+					BaseImageURL: baseImageUrl,
 				})
 				Expect(err).To(HaveOccurred())
 
@@ -310,7 +295,7 @@ var _ = Describe("Creator", func() {
 
 			It("does not pull the image", func() {
 				_, err := creator.Create(logger, groot.CreateSpec{
-					BaseImage: "/path/to/image",
+					BaseImageURL: baseImageUrl,
 				})
 				Expect(err).To(HaveOccurred())
 
@@ -322,8 +307,8 @@ var _ = Describe("Creator", func() {
 		Context("when the id contains invalid characters", func() {
 			It("returns an error", func() {
 				_, err := creator.Create(logger, groot.CreateSpec{
-					BaseImage: "/path/to/image",
-					ID:        "some/id",
+					BaseImageURL: baseImageUrl,
+					ID:           "some/id",
 				})
 				Expect(err).To(HaveOccurred())
 
@@ -339,14 +324,14 @@ var _ = Describe("Creator", func() {
 
 			It("returns the error", func() {
 				_, err := creator.Create(logger, groot.CreateSpec{
-					BaseImage: "/path/to/image",
+					BaseImageURL: baseImageUrl,
 				})
 				Expect(err).To(MatchError(ContainSubstring("failed to lock")))
 			})
 
 			It("does not pull the image", func() {
 				_, err := creator.Create(logger, groot.CreateSpec{
-					BaseImage: "/path/to/image",
+					BaseImageURL: baseImageUrl,
 				})
 				Expect(err).To(HaveOccurred())
 
@@ -361,14 +346,14 @@ var _ = Describe("Creator", func() {
 
 			It("returns the error", func() {
 				_, err := creator.Create(logger, groot.CreateSpec{
-					BaseImage: "/path/to/image",
+					BaseImageURL: baseImageUrl,
 				})
 				Expect(err).To(MatchError(ContainSubstring("failed to pull image")))
 			})
 
 			It("does not create a image", func() {
 				_, err := creator.Create(logger, groot.CreateSpec{
-					BaseImage: "/path/to/image",
+					BaseImageURL: baseImageUrl,
 				})
 				Expect(err).To(HaveOccurred())
 
@@ -395,8 +380,8 @@ var _ = Describe("Creator", func() {
 
 			It("returns an errors", func() {
 				_, err := creator.Create(logger, groot.CreateSpec{
-					ID:        "my-image",
-					BaseImage: "/path/to/image",
+					ID:           "my-image",
+					BaseImageURL: baseImageUrl,
 				})
 
 				Expect(err).To(MatchError(ContainSubstring("failed to register dependencies")))
@@ -404,8 +389,8 @@ var _ = Describe("Creator", func() {
 
 			It("destroys the image", func() {
 				_, err := creator.Create(logger, groot.CreateSpec{
-					ID:        "my-image",
-					BaseImage: "/path/to/image",
+					ID:           "my-image",
+					BaseImageURL: baseImageUrl,
 				})
 				Expect(err).To(HaveOccurred())
 
@@ -424,9 +409,9 @@ var _ = Describe("Creator", func() {
 				fakeBaseImagePuller.PullReturns(baseImage, nil)
 
 				_, err := creator.Create(logger, groot.CreateSpec{
-					ID:        "some-id",
-					DiskLimit: int64(1024),
-					BaseImage: "/path/to/image",
+					ID:           "some-id",
+					DiskLimit:    int64(1024),
+					BaseImageURL: baseImageUrl,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
