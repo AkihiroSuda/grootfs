@@ -36,6 +36,7 @@ type fileSystemDriver interface {
 	VolumeSize(lager.Logger, string) (int64, error)
 	CreateVolume(logger lager.Logger, parentID, id string) (string, error)
 	DestroyVolume(logger lager.Logger, id string) error
+	FinalizeVolume(logger lager.Logger, id string) error
 	MoveVolume(logger lager.Logger, from, to string) error
 	WriteVolumeMeta(logger lager.Logger, id string, data base_image_puller.VolumeMeta) error
 	HandleOpaqueWhiteouts(logger lager.Logger, id string, opaqueWhiteouts []string) error

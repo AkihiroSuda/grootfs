@@ -144,6 +144,10 @@ func (d *Driver) CreateVolume(logger lager.Logger, parentID string, id string) (
 	return d.driver.CreateVolume(logger, parentID, id)
 }
 
+func (d *Driver) FinalizeVolume(logger lager.Logger, id string) error {
+	return nil
+}
+
 func (d *Driver) DestroyVolume(logger lager.Logger, id string) error {
 	if len(d.idMappings.UIDMappings)+len(d.idMappings.GIDMappings) == 0 || os.Getuid() == 0 {
 		return d.driver.DestroyVolume(logger, id)

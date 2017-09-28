@@ -111,6 +111,10 @@ func (d *Driver) CreateVolume(logger lager.Logger, parentID, id string) (string,
 	return volPath, nil
 }
 
+func (d *Driver) FinalizeVolume(logger lager.Logger, from string) error {
+	return nil
+}
+
 func (d *Driver) MoveVolume(logger lager.Logger, from, to string) error {
 	logger = logger.Session("btrfs-moving-volume", lager.Data{"from": from, "to": to})
 	logger.Debug("starting")

@@ -3,7 +3,6 @@ package commands // import "code.cloudfoundry.org/grootfs/commands"
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"code.cloudfoundry.org/commandrunner/linux_command_runner"
 	"code.cloudfoundry.org/lager"
@@ -73,9 +72,7 @@ var CleanCommand = cli.Command{
 		metricsEmitter := metrics.NewEmitter()
 
 		locksmith := locksmithpkg.NewExclusiveFileSystem(storePath, metricsEmitter)
-		dependencyManager := dependency_manager.NewDependencyManager(
-			filepath.Join(storePath, storepkg.MetaDirName, "dependencies"),
-		)
+		dependencyManager := dependency_manager.NewDependencyManager(storePath)
 
 		storeNamespacer := groot.NewStoreNamespacer(storePath)
 		idMappings, err := storeNamespacer.Read()

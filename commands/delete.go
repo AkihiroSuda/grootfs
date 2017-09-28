@@ -2,13 +2,11 @@ package commands // import "code.cloudfoundry.org/grootfs/commands"
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"code.cloudfoundry.org/grootfs/commands/config"
 	"code.cloudfoundry.org/grootfs/commands/idfinder"
 	"code.cloudfoundry.org/grootfs/groot"
 	"code.cloudfoundry.org/grootfs/metrics"
-	"code.cloudfoundry.org/grootfs/store"
 	"code.cloudfoundry.org/grootfs/store/dependency_manager"
 	"code.cloudfoundry.org/grootfs/store/image_cloner"
 	"code.cloudfoundry.org/lager"
@@ -61,9 +59,7 @@ var DeleteCommand = cli.Command{
 		}
 
 		imageCloner := image_cloner.NewImageCloner(imageDriver, storePath)
-		dependencyManager := dependency_manager.NewDependencyManager(
-			filepath.Join(storePath, store.MetaDirName, "dependencies"),
-		)
+		dependencyManager := dependency_manager.NewDependencyManager(storePath)
 		metricsEmitter := metrics.NewEmitter()
 		deleter := groot.IamDeleter(imageCloner, dependencyManager, metricsEmitter)
 

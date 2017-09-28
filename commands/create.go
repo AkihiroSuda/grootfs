@@ -165,9 +165,7 @@ var CreateCommand = cli.Command{
 		layerFetcher := layer_fetcher.NewLayerFetcher(&layerSource)
 		tarFetcher := tar_fetcher.NewTarFetcher()
 
-		dependencyManager := dependency_manager.NewDependencyManager(
-			filepath.Join(storePath, storepkg.MetaDirName, "dependencies"),
-		)
+		dependencyManager := dependency_manager.NewDependencyManager(storePath)
 
 		nsFsDriver := namespaced.New(fsDriver, idMappings, idMapper, runner)
 		baseImagePuller := base_image_puller.NewBaseImagePuller(

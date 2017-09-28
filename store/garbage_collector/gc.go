@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/grootfs/base_image_puller"
-	"code.cloudfoundry.org/grootfs/groot"
 	"code.cloudfoundry.org/lager"
 	errorspkg "github.com/pkg/errors"
 )
@@ -22,6 +21,7 @@ type ImageCloner interface {
 
 type DependencyManager interface {
 	Dependencies(id string) ([]string, error)
+	Referenced(id string) (bool, error)
 }
 
 type VolumeDriver interface {
@@ -143,25 +143,48 @@ func (g *GarbageCollector) UnusedVolumes(logger lager.Logger, keepImages []strin
 		return nil, errorspkg.Wrap(err, "failed to retrieve volume list")
 	}
 
+	// New Scheme:
+	// Get all volumes
+	// Look at /meta/volumes/<volume_id>-ref-counter
+	// If ref count == 1 this image is orphaned
+	//
+
+	// Get anything that isn't marked with .gc already
 	orphanedVolumes := make(map[string]struct{})
 	for _, vol := range volumes {
 		if !strings.HasPrefix(vol, "gc.") {
 			orphanedVolumes[vol] = struct{}{}
 		}
-	}
 
-	imageIDs, err := g.imageCloner.ImageIDs(logger)
-	if err != nil {
-		return nil, errorspkg.Wrap(err, "failed to retrieve images")
-	}
-
-	for _, imageID := range imageIDs {
-		imageRefName := fmt.Sprintf(groot.ImageReferenceFormat, imageID)
-		if err := g.removeDependencies(orphanedVolumes, imageRefName); err != nil {
+		referenced, err := g.dependencyManager.Referenced(vol)
+		if err != nil {
 			return nil, err
+		}
+
+		logger.Info(fmt.Sprintf("Volume %s referenced: %t", vol, referenced))
+
+		if referenced {
+			logger.Info(fmt.Sprintf("Removing  vol %s friom orphan list", vol))
+			delete(orphanedVolumes, vol)
 		}
 	}
 
+	logger.Info(fmt.Sprintf("Orphan volumes: %#v", orphanedVolumes))
+
+	// imageIDs, err := g.imageCloner.ImageIDs(logger)
+	// if err != nil {
+	// 	return nil, errorspkg.Wrap(err, "failed to retrieve images")
+	// }
+
+	// Remove anything from UnusedVolumes list that is currently in use
+	// for _, imageID := range imageIDs {
+	// 	imageRefName := fmt.Sprintf(groot.ImageReferenceFormat, imageID)
+	// 	if err := g.removeDependencies(orphanedVolumes, imageRefName); err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+
+	// Remove anything from UnusedVolumes list that is a persistent image
 	for _, keepImage := range keepImages {
 		imageRefName := fmt.Sprintf(base_image_puller.BaseImageReferenceFormat, keepImage)
 		if err := g.removeDependencies(orphanedVolumes, imageRefName); err != nil {

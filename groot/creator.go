@@ -1,7 +1,6 @@
 package groot
 
 import (
-	"fmt"
 	"net/url"
 	"os"
 	"strings"
@@ -122,8 +121,12 @@ func (c *Creator) Create(logger lager.Logger, spec CreateSpec) (ImageInfo, error
 		return ImageInfo{}, errorspkg.Wrap(err, "making image")
 	}
 
-	imageRefName := fmt.Sprintf(ImageReferenceFormat, spec.ID)
-	if err := c.dependencyManager.Register(imageRefName, baseImage.ChainIDs); err != nil {
+	// Register all volumes that are used in this image
+	//
+	// New Scheme:
+	// Pulling layer ABC and laying it in /volumes/ABC should result in a /meta/volumes/ABC-ref-counter file
+	// We should create /images/ABC-ref hard link pointing to /meta/volumes/ABC-ref-counter
+	if err := c.dependencyManager.Register(spec.ID, baseImage.ChainIDs); err != nil {
 		if destroyErr := c.imageCloner.Destroy(logger, spec.ID); destroyErr != nil {
 			logger.Error("failed-to-destroy-image", destroyErr)
 		}

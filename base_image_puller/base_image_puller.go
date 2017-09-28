@@ -74,6 +74,7 @@ type Unpacker interface {
 type VolumeDriver interface {
 	VolumePath(logger lager.Logger, id string) (string, error)
 	CreateVolume(logger lager.Logger, parentID, id string) (string, error)
+	FinalizeVolume(logger lager.Logger, id string) error
 	DestroyVolume(logger lager.Logger, id string) error
 	Volumes(logger lager.Logger) ([]string, error)
 	MoveVolume(logger lager.Logger, from, to string) error
@@ -124,10 +125,10 @@ func (p *BaseImagePuller) Pull(logger lager.Logger, spec groot.BaseImageSpec) (g
 	}
 	chainIDs := p.chainIDs(baseImageInfo.LayersDigest)
 
-	baseImageRefName := fmt.Sprintf(BaseImageReferenceFormat, spec.BaseImageSrc.String())
-	if err := p.dependencyRegisterer.Register(baseImageRefName, chainIDs); err != nil {
-		return groot.BaseImage{}, err
-	}
+	// baseImageRefName := fmt.Sprintf(BaseImageReferenceFormat, spec.BaseImageSrc.String())
+	// if err := p.dependencyRegisterer.Register(baseImageRefName, chainIDs); err != nil {
+	// 	return groot.BaseImage{}, err
+	// }
 
 	baseImage := groot.BaseImage{
 		BaseImage: baseImageInfo.Config,
@@ -336,6 +337,10 @@ func (p *BaseImagePuller) unpackLayerToTemporaryDirectory(logger lager.Logger, u
 func (p *BaseImagePuller) finalizeVolume(logger lager.Logger, tempVolumeName, volumePath, chainID string, volSize int64) error {
 	if err := p.volumeDriver.WriteVolumeMeta(logger, chainID, VolumeMeta{Size: volSize}); err != nil {
 		return errorspkg.Wrapf(err, "writing volume `%s` metadata", chainID)
+	}
+
+	if err := p.volumeDriver.FinalizeVolume(logger, volumePath); err != nil {
+		return errorspkg.Wrapf(err, "failed to finalize volume")
 	}
 
 	finalVolumePath := strings.Replace(volumePath, tempVolumeName, chainID, 1)

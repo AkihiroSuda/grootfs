@@ -152,7 +152,17 @@ func (d *Driver) CreateVolume(logger lager.Logger, parentID string, id string) (
 		logger.Error("changing-volume-permissions-failed", err)
 		return "", errorspkg.Wrap(err, "changing volume permissions")
 	}
+
 	return volumePath, nil
+}
+
+func (d *Driver) FinalizeVolume(logger lager.Logger, id string) error {
+	err := ioutil.WriteFile(filepath.Join(d.storePath, fmt.Sprintf("meta/volumes/%s-ref-counter", id)), []byte{}, 0755)
+	if err != nil {
+		logger.Error("creating-volume-ref-counter-failed", err)
+		return errorspkg.Wrap(err, "changing volume permissions")
+	}
+	return nil
 }
 
 func (d *Driver) DestroyVolume(logger lager.Logger, id string) error {

@@ -1,57 +1,81 @@
 package dependency_manager
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
-
-	errorspkg "github.com/pkg/errors"
+	"syscall"
 )
 
 type DependencyManager struct {
-	dependenciesPath string
+	storePath string
 }
 
-func NewDependencyManager(dependenciesPath string) *DependencyManager {
+func NewDependencyManager(storePath string) *DependencyManager {
 	return &DependencyManager{
-		dependenciesPath: dependenciesPath,
+		storePath: storePath,
 	}
 }
 
 func (d *DependencyManager) Register(id string, chainIDs []string) error {
-	data, err := json.Marshal(chainIDs)
-	if err != nil {
+	if err := os.MkdirAll(filepath.Join(d.storePath, "images", id, "refs"), 0755); err != nil {
 		return err
 	}
 
-	return ioutil.WriteFile(d.filePath(id), data, 0666)
+	for _, vol := range chainIDs {
+		f, err := os.Create(filepath.Join(d.storePath, "meta", fmt.Sprintf("%s-ref-counter", vol)))
+		if err != nil {
+			return err
+		}
+		f.Close()
+
+		err = os.Link(filepath.Join(d.storePath, "meta", fmt.Sprintf("%s-ref-counter", vol)),
+			filepath.Join(d.storePath, "images", id, "refs", fmt.Sprintf("%s", vol)))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *DependencyManager) Deregister(id string) error {
-	return os.Remove(d.filePath(id))
+	return os.Remove(filepath.Join(d.storePath, "images", id, "refs"))
 }
 
 func (d *DependencyManager) Dependencies(id string) ([]string, error) {
-	f, err := os.Open(d.filePath(id))
-	if err != nil && os.IsNotExist(err) {
-		return nil, errorspkg.Errorf("image `%s` not found", id)
-	}
+	infos, err := ioutil.ReadDir(filepath.Join(d.storePath, "images", id, "refs"))
 	if err != nil {
 		return nil, err
 	}
 
-	var chainIDs []string
-	if err := json.NewDecoder(f).Decode(&chainIDs); err != nil {
-		return nil, err
+	deps := []string{}
+	for _, info := range infos {
+		deps = append(deps, info.Name())
 	}
 
-	return chainIDs, nil
+	return deps, nil
 }
 
-func (d *DependencyManager) filePath(id string) string {
-	escapedId := strings.Replace(id, "/", "__", -1)
-	return filepath.Join(d.dependenciesPath, fmt.Sprintf("%s.json", escapedId))
+func (d *DependencyManager) Referenced(id string) (bool, error) {
+	refCount, err := numReferences(filepath.Join(d.storePath, "meta", fmt.Sprintf("%s-ref-counter", id)))
+	if err != nil {
+		return false, err
+	}
+	return refCount > 1, nil
+}
+
+func numReferences(filename string) (uint64, error) {
+	nlink := uint64(0)
+
+	fileInfo, err := os.Stat(filename)
+	if err != nil {
+		return nlink, err
+	}
+	if sys := fileInfo.Sys(); sys != nil {
+		if stat, ok := sys.(*syscall.Stat_t); ok {
+			nlink = stat.Nlink
+		}
+	}
+	return nlink, nil
 }

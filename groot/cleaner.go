@@ -1,6 +1,7 @@
 package groot
 
 import (
+	"fmt"
 	"time"
 
 	"code.cloudfoundry.org/lager"
@@ -68,6 +69,8 @@ func (c *cleaner) Clean(logger lager.Logger, threshold int64, keepImages []strin
 	if err != nil {
 		logger.Error("finding-unused-failed", err)
 	}
+
+	logger.Info(fmt.Sprintf("UNUSED VOLUMES: %#v", unusedVolumes))
 
 	if storeSize != 0 {
 		defer c.emitDiskPurgeableCachePercentageMetric(logger, unusedVolumes, storeSize)
