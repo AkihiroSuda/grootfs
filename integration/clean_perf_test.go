@@ -3,7 +3,6 @@ package integration_test
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"code.cloudfoundry.org/grootfs/groot"
@@ -13,22 +12,15 @@ import (
 
 var _ = FDescribe("Clean", func() {
 	BeforeEach(func() {
-		workDir, err := os.Getwd()
+		createImages("docker:///cfgarden/empty:v0.1.1", "a")
+		_, err := Runner.Create(groot.CreateSpec{
+			ID:        "busybox",
+			BaseImage: "docker:///busybox:latest",
+			Mount:     mountByDefault(),
+		})
 		Expect(err).NotTo(HaveOccurred())
 
-		images := []string{
-			"docker:///cfgarden/empty:v0.1.1",
-			"docker:///onsi/grace-busybox:latest",
-			"docker:///busybox:latest",
-			fmt.Sprintf("oci:///%s/assets/oci-test-image/grootfs-busybox:latest", workDir),
-			fmt.Sprintf("oci:///%s/assets/oci-test-image/garden-busybox:latest", workDir),
-			fmt.Sprintf("oci:///%s/assets/oci-test-image/empty", workDir),
-			fmt.Sprintf("oci:///%s/assets/oci-test-image/non-writable-file:latest", workDir),
-			fmt.Sprintf("oci:///%s/assets/oci-test-image/non-writable-folder:latest", workDir),
-			fmt.Sprintf("oci:///%s/assets/oci-test-image/opq-whiteouts-busybox:latest", workDir),
-		}
-		createImages(images)
-		deleteAllImages()
+		Expect(Runner.Delete("busybox")).To(Succeed())
 	})
 
 	AfterEach(func() {
@@ -40,10 +32,18 @@ var _ = FDescribe("Clean", func() {
 		files, err := ioutil.ReadDir(fmt.Sprintf("/mnt/xfs-%d/store/volumes", GinkgoParallelNode()))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(files).To(BeEmpty())
+
 	})
 
 	Measure("clean time", func(b Benchmarker) {
-		b.Time("clean", func() {
+		b.Time("first-clean", func() {
+			_, err := Runner.Clean(0, []string{})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		deleteAllImages()
+
+		b.Time("second-clean", func() {
 			_, err := Runner.Clean(0, []string{})
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -51,10 +51,10 @@ var _ = FDescribe("Clean", func() {
 
 })
 
-func createImages(images []string) {
-	for i, image := range images {
+func createImages(image string, prefix string) {
+	for i := 0; i < 199; i++ {
 		_, err := Runner.Create(groot.CreateSpec{
-			ID:        fmt.Sprintf("my-image-%d", i),
+			ID:        fmt.Sprintf("my-image-%s-%d", prefix, i),
 			BaseImage: image,
 			Mount:     mountByDefault(),
 		})
