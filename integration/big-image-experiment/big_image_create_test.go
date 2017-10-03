@@ -16,7 +16,7 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-var _ = Describe("Create with remote DOCKER images", func() {
+var _ = PDescribe("Create with remote DOCKER images", func() {
 	var (
 		randomImageID string
 		runner        runnerpkg.Runner

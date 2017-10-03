@@ -21,12 +21,12 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-var _ = Describe("Create with local TAR images", func() {
+var _ = FDescribe("Create with local TAR images", func() {
 	var (
 		randomImageID   string
 		sourceImagePath string
-		baseImagePath   string
-		baseImageFile   *os.File
+		imageTarPath    string
+		baseImageTar    *os.File
 		spec            groot.CreateSpec
 	)
 
@@ -50,18 +50,22 @@ var _ = Describe("Create with local TAR images", func() {
 
 	AfterEach(func() {
 		Expect(os.RemoveAll(sourceImagePath)).To(Succeed())
-		Expect(os.RemoveAll(baseImagePath)).To(Succeed())
+		Expect(os.RemoveAll(imageTarPath)).To(Succeed())
+		file, _ := ioutil.ReadFile("/tmp/symlink")
+		GinkgoWriter.Write(file)
 	})
 
 	JustBeforeEach(func() {
-		baseImageFile = integration.CreateBaseImageTar(sourceImagePath)
-		baseImagePath = baseImageFile.Name()
+		baseImageTar = integration.CreateBaseImageTar(sourceImagePath)
+		imageTarPath = baseImageTar.Name()
 
 		spec = groot.CreateSpec{
-			BaseImage: baseImagePath,
+			BaseImage: imageTarPath,
 			ID:        randomImageID,
 			Mount:     mountByDefault(),
 		}
+
+		Expect(os.RemoveAll(sourceImagePath)).To(Succeed())
 	})
 
 	It("creates a root filesystem", func() {
@@ -96,7 +100,7 @@ var _ = Describe("Create with local TAR images", func() {
 
 			image2, err := Runner.Create(groot.CreateSpec{
 				ID:        testhelpers.NewRandomID(),
-				BaseImage: baseImagePath,
+				BaseImage: imageTarPath,
 				Mount:     false,
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -134,7 +138,7 @@ var _ = Describe("Create with local TAR images", func() {
 		JustBeforeEach(func() {
 			_, err := Runner.Create(groot.CreateSpec{
 				ID:        "my-image-1",
-				BaseImage: baseImagePath,
+				BaseImage: imageTarPath,
 				Mount:     mountByDefault(),
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -235,11 +239,11 @@ var _ = Describe("Create with local TAR images", func() {
 
 		It("uses the new content for the new image", func() {
 			Expect(ioutil.WriteFile(path.Join(sourceImagePath, "bar"), []byte("this-is-a-bar-content"), 0644)).To(Succeed())
-			integration.UpdateBaseImageTar(baseImagePath, sourceImagePath)
+			integration.UpdateBaseImageTar(imageTarPath, sourceImagePath)
 
 			containerSpec, err := Runner.Create(groot.CreateSpec{
 				ID:        testhelpers.NewRandomID(),
-				BaseImage: baseImagePath,
+				BaseImage: imageTarPath,
 				Mount:     mountByDefault(),
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -256,11 +260,11 @@ var _ = Describe("Create with local TAR images", func() {
 		It("doesn't leak the file", func() {
 			workDir, err := os.Getwd()
 			Expect(err).NotTo(HaveOccurred())
-			baseImagePath = fmt.Sprintf("%s/assets/hacked.tar", workDir)
+			imageTarPath = fmt.Sprintf("%s/assets/hacked.tar", workDir)
 
 			_, err = Runner.Create(groot.CreateSpec{
 				ID:        "image-1",
-				BaseImage: baseImagePath,
+				BaseImage: imageTarPath,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -273,13 +277,13 @@ var _ = Describe("Create with local TAR images", func() {
 			_, err := Runner.Create(spec)
 			Expect(err).NotTo(HaveOccurred())
 
-			volumeID := integration.BaseImagePathToVolumeID(baseImagePath)
+			volumeID := integration.BaseImagePathToVolumeID(imageTarPath)
 			layerSnapshotPath := filepath.Join(StorePath, "volumes", volumeID)
 			Expect(ioutil.WriteFile(layerSnapshotPath+"/injected-file", []byte{}, 0666)).To(Succeed())
 
 			containerSpec, err := Runner.Create(groot.CreateSpec{
 				ID:        testhelpers.NewRandomID(),
-				BaseImage: baseImagePath,
+				BaseImage: imageTarPath,
 				Mount:     mountByDefault(),
 			})
 			Expect(Runner.EnsureMounted(containerSpec)).To(Succeed())
@@ -364,7 +368,7 @@ var _ = Describe("Create with local TAR images", func() {
 				path.Join(sourceImagePath, "symlink-target"), []byte("hello-world"), 0644),
 			).To(Succeed())
 			Expect(os.Symlink(
-				filepath.Join(sourceImagePath, "symlink-target"),
+				filepath.Join(".", "symlink-target"),
 				filepath.Join(sourceImagePath, "symlink"),
 			)).To(Succeed())
 		})
@@ -408,5 +412,21 @@ var _ = Describe("Create with local TAR images", func() {
 				Expect(symlinkFi.ModTime().Unix()).To(Equal(modTime.Unix()))
 			})
 		})
+	})
+
+	Context("test whether openat", func() {
+		FIt("allows root path escaping", func() {
+			rootDirPath, err := ioutil.TempDir("", "chown-test-dir")
+
+			Expect(os.Mkdir(filepath.Join(rootDirPath, "sub-dir"), 0777)).To(Succeed())
+			subDirFileDescriptor, err := syscall.Open(path.Join(rootDirPath, "sub-dir"), syscall.O_DIRECTORY, syscall.O_WRONLY)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = syscall.Openat(subDirFileDescriptor, "../outside-root", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0777)
+			//Expect(err).To(HaveOccurred())
+			Expect(filepath.Join(rootDirPath, "outside-root")).ToNot(BeAnExistingFile())
+
+		})
+
 	})
 })

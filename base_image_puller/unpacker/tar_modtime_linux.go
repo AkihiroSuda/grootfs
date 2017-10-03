@@ -12,7 +12,7 @@ import (
 const utimeOmit int64 = ((1 << 30) - 2)
 const atSymlinkNoFollow int = 0x100
 
-func changeModTime(path string, modTime time.Time) error {
+func changeModTime(rootDir int, path string, modTime time.Time) error {
 	var _path *byte
 	_path, err := syscall.BytePtrFromString(path)
 	if err != nil {
@@ -24,10 +24,9 @@ func changeModTime(path string, modTime time.Time) error {
 		syscall.NsecToTimespec(modTime.UnixNano()),
 	}
 
-	atFdCwd := -100
 	_, _, errno := syscall.Syscall6(
 		syscall.SYS_UTIMENSAT,
-		uintptr(atFdCwd),
+		uintptr(rootDir),
 		uintptr(unsafe.Pointer(_path)),
 		uintptr(unsafe.Pointer(&ts[0])),
 		uintptr(atSymlinkNoFollow),

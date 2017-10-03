@@ -317,6 +317,7 @@ func (p *BaseImagePuller) unpackLayerToTemporaryDirectory(logger lager.Logger, u
 	}
 
 	var unpackOutput UnpackOutput
+	logger.Info(fmt.Sprintf(">>>>>>>>>>>>> Unpacking with spec %#v", unpackSpec))
 	if unpackOutput, err = p.unpacker.Unpack(logger, unpackSpec); err != nil {
 		if errD := p.volumeDriver.DestroyVolume(logger, digest.ChainID); errD != nil {
 			logger.Error("volume-cleanup-failed", errD)

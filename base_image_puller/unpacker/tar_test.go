@@ -73,7 +73,7 @@ var _ = Describe("Tar unpacker", func() {
 		Expect(os.RemoveAll(whiteoutDevicePath)).To(Succeed())
 	})
 
-	Describe("regular files", func() {
+	FDescribe("regular files", func() {
 		BeforeEach(func() {
 			Expect(ioutil.WriteFile(path.Join(baseImagePath, "a_file"), []byte("hello-world"), 0600)).To(Succeed())
 		})

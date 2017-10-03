@@ -2,8 +2,6 @@ package unpacker // import "code.cloudfoundry.org/grootfs/base_image_puller/unpa
 
 import (
 	"archive/tar"
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,57 +13,11 @@ import (
 	"unsafe"
 
 	"github.com/pkg/errors"
-	"github.com/tscolari/lagregator"
-
-	"github.com/containers/storage/pkg/reexec"
-	"github.com/urfave/cli"
 
 	"code.cloudfoundry.org/grootfs/base_image_puller"
 	"code.cloudfoundry.org/grootfs/groot"
 	"code.cloudfoundry.org/lager"
 )
-
-func init() {
-	var fail = func(logger lager.Logger, message string, err error) {
-		logger.Error(message, err)
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
-
-	reexec.Register("chroot-unpack", func() {
-		cli.ErrWriter = os.Stdout
-		logger := lager.NewLogger("chroot")
-		logger.RegisterSink(lager.NewWriterSink(os.Stderr, lager.DEBUG))
-
-		unpackSpecJSON := os.Args[1]
-		unpackStrategyJSON := os.Args[2]
-
-		var unpackSpec base_image_puller.UnpackSpec
-		if err := json.Unmarshal([]byte(unpackSpecJSON), &unpackSpec); err != nil {
-			fail(logger, "unmarshal-unpack-spec-failed", err)
-		}
-
-		var unpackStrategy UnpackStrategy
-		if err := json.Unmarshal([]byte(unpackStrategyJSON), &unpackStrategy); err != nil {
-			fail(logger, "unmarshal-unpack-strategy-failed", err)
-		}
-
-		unpacker, err := NewTarUnpacker(unpackStrategy)
-		if err != nil {
-			fail(logger, "creating-tar-unpacker", err)
-		}
-
-		unpackSpec.Stream = os.Stdin
-
-		logger.Info("unpacking")
-		var unpackOutput base_image_puller.UnpackOutput
-		if unpackOutput, err = unpacker.unpack(logger, unpackSpec); err != nil {
-			fail(logger, "unpacking-failed", err)
-		}
-
-		_ = json.NewEncoder(os.Stdout).Encode(unpackOutput)
-	})
-}
 
 type UnpackStrategy struct {
 	Name               string
@@ -160,32 +112,17 @@ func (*defaultWhiteoutHandler) removeWhiteout(path string) error {
 }
 
 func (u *TarUnpacker) Unpack(logger lager.Logger, spec base_image_puller.UnpackSpec) (base_image_puller.UnpackOutput, error) {
-	strategyJSON, err := json.Marshal(u.strategy)
+	unpacker, err := NewTarUnpacker(u.strategy)
 	if err != nil {
-		return base_image_puller.UnpackOutput{}, err
+		return base_image_puller.UnpackOutput{}, errors.Wrap(err, "creating-tar-unpacker")
 	}
 
-	unpackSpecJSON, err := json.Marshal(spec)
-	if err != nil {
-		return base_image_puller.UnpackOutput{}, err
-	}
-
-	outputBuffer := bytes.NewBuffer([]byte{})
-	cmd := reexec.Command("chroot-unpack", string(unpackSpecJSON), string(strategyJSON))
-	cmd.Stderr = lagregator.NewRelogger(logger)
-	cmd.Stdin = spec.Stream
-	cmd.Stdout = outputBuffer
-
-	if err := cmd.Run(); err != nil {
-		logger.Error("chroot-unpack-failed", err, lager.Data{"output": outputBuffer.String()})
-		return base_image_puller.UnpackOutput{}, errors.New(strings.TrimSpace(outputBuffer.String()))
-	}
-
+	logger.Info("unpacking")
 	var unpackOutput base_image_puller.UnpackOutput
-	if err := json.NewDecoder(outputBuffer).Decode(&unpackOutput); err != nil {
-		logger.Error("unpack-invalid-output", err, lager.Data{"output": outputBuffer.String()})
-		return base_image_puller.UnpackOutput{}, errors.Wrap(err, "parsing unpack output")
+	if unpackOutput, err = unpacker.unpack(logger, spec); err != nil {
+		return base_image_puller.UnpackOutput{}, errors.Wrap(err, "unpacking-failed")
 	}
+	logger.Info("unpacking-completed")
 
 	return unpackOutput, nil
 }
@@ -201,8 +138,11 @@ func (u *TarUnpacker) unpack(logger lager.Logger, spec base_image_puller.UnpackS
 
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	if err := chroot(spec.TargetPath); err != nil {
-		return base_image_puller.UnpackOutput{}, errors.Wrap(err, "failed to chroot")
+
+	targetPathFileDescriptor, err := syscall.Open(spec.TargetPath, syscall.O_DIRECTORY, syscall.O_WRONLY)
+	logger.Info(fmt.Sprintf("============== Unpacking at `%s`", spec.TargetPath))
+	if err != nil {
+		return base_image_puller.UnpackOutput{}, errors.Wrap(err, "failed to open target path directory")
 	}
 
 	tarReader := tar.NewReader(spec.Stream)
@@ -224,18 +164,18 @@ func (u *TarUnpacker) unpack(logger lager.Logger, spec base_image_puller.UnpackS
 		}
 
 		if strings.Contains(tarHeader.Name, ".wh.") {
-			if err := u.whiteoutHandler.removeWhiteout(entryPath); err != nil {
+			if err = u.whiteoutHandler.removeWhiteout(entryPath); err != nil {
 				return base_image_puller.UnpackOutput{}, err
 			}
 			continue
 		}
 
-		entrySize, err := u.handleEntry(entryPath, tarReader, tarHeader, spec)
+		entrySize, err := u.handleEntry(logger, targetPathFileDescriptor, entryPath, tarReader, tarHeader, spec)
 		if err != nil {
 			return base_image_puller.UnpackOutput{}, err
 		}
 
-		totalBytesUnpacked += entrySize
+		totalBytesUnpacked += int64(entrySize)
 	}
 
 	return base_image_puller.UnpackOutput{
@@ -244,29 +184,33 @@ func (u *TarUnpacker) unpack(logger lager.Logger, spec base_image_puller.UnpackS
 	}, nil
 }
 
-func (u *TarUnpacker) handleEntry(entryPath string, tarReader *tar.Reader, tarHeader *tar.Header, spec base_image_puller.UnpackSpec) (entrySize int64, err error) {
+func (u *TarUnpacker) handleEntry(logger lager.Logger, targetPathFileDescriptor int, entryPath string, tarReader *tar.Reader, tarHeader *tar.Header, spec base_image_puller.UnpackSpec) (entrySize int, err error) {
 	switch tarHeader.Typeflag {
 	case tar.TypeBlock, tar.TypeChar:
 		// ignore devices
 		return 0, nil
 
 	case tar.TypeLink:
-		if err = u.createLink(entryPath, tarHeader); err != nil {
+		logger.Info(fmt.Sprintf("================ Creating link: %s\n%#v\n%#v", entryPath, tarHeader, spec))
+		if err = u.createLink(targetPathFileDescriptor, entryPath, tarHeader); err != nil {
 			return 0, err
 		}
 
 	case tar.TypeSymlink:
-		if err = u.createSymlink(entryPath, tarHeader, spec); err != nil {
+		logger.Info(fmt.Sprintf("================ Creating symlink: %s\n%#v\n%#v", entryPath, tarHeader, spec))
+		if err = u.createSymlink(targetPathFileDescriptor, entryPath, tarHeader, spec); err != nil {
 			return 0, err
 		}
 
 	case tar.TypeDir:
-		if err = u.createDirectory(entryPath, tarHeader, spec); err != nil {
+		logger.Info(fmt.Sprintf("================= Creating dir: %s\n%#v\n%#v", entryPath, tarHeader, spec))
+		if err = u.createDirectory(targetPathFileDescriptor, entryPath, tarHeader, spec); err != nil {
 			return 0, err
 		}
 
 	case tar.TypeReg, tar.TypeRegA:
-		if entrySize, err = u.createRegularFile(entryPath, tarHeader, tarReader, spec); err != nil {
+		logger.Info(fmt.Sprintf("================== Creating file: %s\n%#v\n%#v", entryPath, tarHeader, spec))
+		if entrySize, err = u.createRegularFile(targetPathFileDescriptor, entryPath, tarHeader, tarReader, spec); err != nil {
 			return 0, err
 		}
 	}
@@ -274,52 +218,59 @@ func (u *TarUnpacker) handleEntry(entryPath string, tarReader *tar.Reader, tarHe
 	return entrySize, nil
 }
 
-func (u *TarUnpacker) createDirectory(path string, tarHeader *tar.Header, spec base_image_puller.UnpackSpec) error {
-	if _, err := os.Stat(path); err != nil {
-		if err = os.Mkdir(path, tarHeader.FileInfo().Mode()); err != nil {
-			newErr := errors.Wrapf(err, "creating directory `%s`", path)
+func (u *TarUnpacker) createDirectory(targetPathFileDescriptor int, path string, tarHeader *tar.Header, spec base_image_puller.UnpackSpec) error {
+	_, err := syscall.Openat(targetPathFileDescriptor, path, syscall.O_DIRECTORY, uint32(tarHeader.FileInfo().Mode()))
+	if err != nil {
+		err = syscall.Mkdirat(targetPathFileDescriptor, path, uint32(tarHeader.FileInfo().Mode()))
+		if os.IsPermission(err) {
+			dirName := filepath.Dir(tarHeader.Name)
+			return errors.Errorf("'/%s' does not give write permission to its owner. This image can only be unpacked using uid and gid mappings, or by running as root.", dirName)
+		}
 
-			if os.IsPermission(err) {
-				dirName := filepath.Dir(tarHeader.Name)
-				return errors.Errorf("'/%s' does not give write permission to its owner. This image can only be unpacked using uid and gid mappings, or by running as root.", dirName)
-			}
-
-			return newErr
+		_, err = syscall.Openat(targetPathFileDescriptor, path, syscall.O_DIRECTORY, uint32(tarHeader.FileInfo().Mode()))
+		if err != nil {
+			return errors.Wrapf(err, "failed to open directory %s", path)
 		}
 	}
 
 	if os.Getuid() == 0 {
 		uid := u.translateID(tarHeader.Uid, spec.UIDMappings)
 		gid := u.translateID(tarHeader.Gid, spec.GIDMappings)
-		if err := os.Chown(path, uid, gid); err != nil {
+
+		if err = syscall.Fchownat(targetPathFileDescriptor, path, uid, gid, 0); err != nil {
 			return errors.Wrapf(err, "chowning directory %d:%d `%s`", uid, gid, path)
 		}
 	}
 
 	// we need to explicitly apply perms because mkdir is subject to umask
-	if err := os.Chmod(path, tarHeader.FileInfo().Mode()); err != nil {
+	if err = syscall.Fchmodat(targetPathFileDescriptor, path, uint32(tarHeader.FileInfo().Mode()), 0); err != nil {
 		return errors.Wrapf(err, "chmoding directory `%s`", path)
 	}
 
-	if err := changeModTime(path, tarHeader.ModTime); err != nil {
-		return errors.Wrapf(err, "setting the modtime for directory `%s`: %s", path)
+	if err := changeModTime(targetPathFileDescriptor, path, tarHeader.ModTime); err != nil {
+		return errors.Wrapf(err, "setting the modtime for directory `%s`", path)
 	}
 
 	return nil
 }
 
-func (u *TarUnpacker) createSymlink(path string, tarHeader *tar.Header, spec base_image_puller.UnpackSpec) error {
-	if _, err := os.Lstat(path); err == nil {
-		if err := os.Remove(path); err != nil {
-			return errors.Wrapf(err, "removing file `%s`", path)
+func (u *TarUnpacker) createSymlink(targetPathFileDescriptor int, path string, tarHeader *tar.Header, spec base_image_puller.UnpackSpec) error {
+	isSymlink, err := isSymlink(targetPathFileDescriptor, path)
+	if err != nil {
+		return errors.Wrapf(err, "determine whether `%s` is a symbolic link", path)
+	}
+
+	if isSymlink {
+		if err = syscall.Unlinkat(targetPathFileDescriptor, path); err != nil {
+			return errors.Wrapf(err, "removing symlink `%s`", path)
 		}
 	}
 
-	if err := os.Symlink(tarHeader.Linkname, path); err != nil {
-		return errors.Wrapf(err, "create symlink `%s` -> `%s`", tarHeader.Linkname, path)
+	if err = createSymLink(targetPathFileDescriptor, tarHeader.Linkname, path); err != nil {
+		return errors.Wrapf(err, "create symlink `%s` -> `%s`", path, tarHeader.Linkname)
 	}
 
-	if err := changeModTime(path, tarHeader.ModTime); err != nil {
+	if err := changeModTime(targetPathFileDescriptor, path, tarHeader.ModTime); err != nil {
 		return errors.Wrapf(err, "setting the modtime for the symlink `%s`", path)
 	}
 
@@ -327,7 +278,7 @@ func (u *TarUnpacker) createSymlink(path string, tarHeader *tar.Header, spec bas
 		uid := u.translateID(tarHeader.Uid, spec.UIDMappings)
 		gid := u.translateID(tarHeader.Gid, spec.GIDMappings)
 
-		if err := os.Lchown(path, uid, gid); err != nil {
+		if err := syscall.Fchownat(targetPathFileDescriptor, path, uid, gid, 0); err != nil {
 			return errors.Wrapf(err, "chowning link %d:%d `%s`", uid, gid, path)
 		}
 	}
@@ -335,12 +286,12 @@ func (u *TarUnpacker) createSymlink(path string, tarHeader *tar.Header, spec bas
 	return nil
 }
 
-func (u *TarUnpacker) createLink(path string, tarHeader *tar.Header) error {
-	return os.Link(tarHeader.Linkname, path)
+func (u *TarUnpacker) createLink(targetPathFileDescriptor int, path string, tarHeader *tar.Header) error {
+	return createLink(targetPathFileDescriptor, path, tarHeader.Linkname)
 }
 
-func (u *TarUnpacker) createRegularFile(path string, tarHeader *tar.Header, tarReader *tar.Reader, spec base_image_puller.UnpackSpec) (int64, error) {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, tarHeader.FileInfo().Mode())
+func (u *TarUnpacker) createRegularFile(targetPathFileDescriptor int, path string, tarHeader *tar.Header, tarReader *tar.Reader, spec base_image_puller.UnpackSpec) (int, error) {
+	fileDescriptor, err := syscall.Openat(targetPathFileDescriptor, path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, uint32(tarHeader.FileInfo().Mode()))
 	if err != nil {
 		newErr := errors.Wrapf(err, "creating file `%s`", path)
 
@@ -352,31 +303,36 @@ func (u *TarUnpacker) createRegularFile(path string, tarHeader *tar.Header, tarR
 		return 0, newErr
 	}
 
-	fileSize, err := io.Copy(file, tarReader)
+	tarContent, err := ioutil.ReadAll(tarReader)
 	if err != nil {
-		_ = file.Close()
-		return 0, errors.Wrapf(err, "writing to file `%s`", path)
+		return 0, errors.Wrap(err, "reading tar")
 	}
 
-	if err := file.Close(); err != nil {
-		return 0, errors.Wrapf(err, "closing file `%s`", path)
+	fileSize, err := syscall.Write(fileDescriptor, tarContent)
+	if err != nil {
+		syscall.Close(fileDescriptor)
+		return 0, errors.Wrapf(err, "writing to file `%s`", path)
 	}
 
 	if os.Getuid() == 0 {
 		uid := u.translateID(tarHeader.Uid, spec.UIDMappings)
 		gid := u.translateID(tarHeader.Gid, spec.GIDMappings)
-		if err := os.Chown(path, uid, gid); err != nil {
+		if err := syscall.Fchown(fileDescriptor, uid, gid); err != nil {
 			return 0, errors.Wrapf(err, "chowning file %d:%d `%s`", uid, gid, path)
 		}
 	}
 
 	// we need to explicitly apply perms because mkdir is subject to umask
-	if err := os.Chmod(path, tarHeader.FileInfo().Mode()); err != nil {
+	if err := syscall.Fchmod(fileDescriptor, uint32(tarHeader.FileInfo().Mode())); err != nil {
 		return 0, errors.Wrapf(err, "chmoding file `%s`", path)
 	}
 
-	if err := changeModTime(path, tarHeader.ModTime); err != nil {
+	if err := changeModTime(targetPathFileDescriptor, path, tarHeader.ModTime); err != nil {
 		return 0, errors.Wrapf(err, "setting the modtime for file `%s`", path)
+	}
+
+	if err := syscall.Close(fileDescriptor); err != nil {
+		return 0, errors.Wrapf(err, "closing file `%s`", path)
 	}
 
 	return fileSize, nil
@@ -423,18 +379,6 @@ func (u *TarUnpacker) translateRootID(mappings []groot.IDMappingSpec) int {
 	}
 
 	return 0
-}
-
-func chroot(path string) error {
-	if err := syscall.Chroot(path); err != nil {
-		return err
-	}
-
-	if err := os.Chdir("/"); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func safeMkdir(path string, perm os.FileMode) error {
