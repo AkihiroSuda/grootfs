@@ -192,16 +192,17 @@ var CreateCommand = cli.Command{
 			dependencyManager, metricsEmitter, cleaner,
 		)
 
+		// TODO: Clean on create threshold never tested
 		createSpec := groot.CreateSpec{
-			ID:                          id,
-			Mount:                       !cfg.Create.WithoutMount,
-			BaseImageURL:                baseImageURL,
-			DiskLimit:                   cfg.Create.DiskLimitSizeBytes,
-			ExcludeBaseImageFromQuota:   cfg.Create.ExcludeImageFromQuota,
-			UIDMappings:                 idMappings.UIDMappings,
-			GIDMappings:                 idMappings.GIDMappings,
-			CleanOnCreate:               cfg.Create.WithClean,
-			CleanOnCreateThresholdBytes: cfg.Clean.ThresholdBytes,
+			ID:                        id,
+			Mount:                     !cfg.Create.WithoutMount,
+			BaseImageURL:              baseImageURL,
+			DiskLimit:                 cfg.Create.DiskLimitSizeBytes,
+			ExcludeBaseImageFromQuota: cfg.Create.ExcludeImageFromQuota,
+			UIDMappings:               idMappings.UIDMappings,
+			GIDMappings:               idMappings.GIDMappings,
+			CleanOnCreate:             cfg.Create.WithClean,
+			CleanOnCreateCacheBytes:   cfg.Clean.CacheBytes,
 		}
 		image, err := creator.Create(logger, createSpec)
 		if err != nil {
