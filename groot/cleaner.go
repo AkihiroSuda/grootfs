@@ -9,7 +9,7 @@ import (
 
 //go:generate counterfeiter . Cleaner
 type Cleaner interface {
-	Clean(logger lager.Logger, threshold int64) (bool, error)
+	Clean(logger lager.Logger, cacheSize int64) (bool, error)
 }
 
 type cleaner struct {

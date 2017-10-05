@@ -168,9 +168,9 @@ func (b *Builder) WithSkipLayerValidation(skip, isSet bool) *Builder {
 	return b
 }
 
-func (b *Builder) WithCacheSizeBytes(threshold int64, isSet bool) *Builder {
+func (b *Builder) WithCacheSizeBytes(cacheSize int64, isSet bool) *Builder {
 	if isSet {
-		b.config.Clean.CacheBytes = threshold
+		b.config.Clean.CacheBytes = cacheSize
 	}
 	return b
 }

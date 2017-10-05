@@ -192,7 +192,6 @@ var CreateCommand = cli.Command{
 			dependencyManager, metricsEmitter, cleaner,
 		)
 
-		// TODO: Clean on create threshold never tested
 		createSpec := groot.CreateSpec{
 			ID:                        id,
 			Mount:                     !cfg.Create.WithoutMount,

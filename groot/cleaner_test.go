@@ -166,7 +166,7 @@ var _ = Describe("Cleaner", func() {
 
 			Context("when the size of unused layers is less than the cache size", func() {
 				BeforeEach(func() {
-					fakeStoreMeasurer.PurgeableCacheReturns(500000, nil)
+					fakeStoreMeasurer.CacheUsageReturns(500000, nil)
 				})
 
 				It("does not remove anything", func() {
@@ -190,7 +190,7 @@ var _ = Describe("Cleaner", func() {
 
 			Context("when the store measurer fails", func() {
 				BeforeEach(func() {
-					fakeStoreMeasurer.PurgeableCacheReturns(0, errors.New("failed to measure"))
+					fakeStoreMeasurer.CacheUsageReturns(0, errors.New("failed to measure"))
 				})
 
 				It("returns the error", func() {
@@ -208,7 +208,7 @@ var _ = Describe("Cleaner", func() {
 			Context("when the size of unused layers is greater than the cache size", func() {
 				BeforeEach(func() {
 					cacheSize = 1000000
-					fakeStoreMeasurer.PurgeableCacheReturns(1500000, nil)
+					fakeStoreMeasurer.CacheUsageReturns(1500000, nil)
 				})
 
 				It("calls the garbage collector", func() {

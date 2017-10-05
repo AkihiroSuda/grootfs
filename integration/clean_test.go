@@ -21,7 +21,7 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-var _ = FDescribe("Clean", func() {
+var _ = Describe("Clean", func() {
 	Context("Local Images", func() {
 		var (
 			baseImagePath             string
@@ -147,7 +147,7 @@ var _ = FDescribe("Clean", func() {
 					})
 				})
 
-				FContext("and the total is more than the cache size", func() {
+				Context("and the total is more than the cache size", func() {
 					BeforeEach(func() {
 						cacheSizeInBytes = 1 * 1024 * 1024
 					})

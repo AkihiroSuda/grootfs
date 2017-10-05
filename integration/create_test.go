@@ -235,7 +235,7 @@ var _ = Describe("Create", func() {
 			_ = Runner.Delete("my-empty")
 		})
 
-		FIt("cleans the store first", func() {
+		It("cleans the store first", func() {
 			preContents, err := ioutil.ReadDir(filepath.Join(StorePath, store.VolumesDirName))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(preContents).To(HaveLen(1))
@@ -254,6 +254,50 @@ var _ = Describe("Create", func() {
 			for _, layer := range testhelpers.EmptyBaseImageV011.Layers {
 				Expect(filepath.Join(StorePath, store.VolumesDirName, layer.ChainID)).To(BeADirectory())
 			}
+		})
+
+		XContext("when a cache size is given", func() {
+			Context("when the unused layers bytes are bigger than the cache size", func() {
+				It("cleans the store first", func() {
+					preContents, err := ioutil.ReadDir(filepath.Join(StorePath, store.VolumesDirName))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(preContents).To(HaveLen(1))
+
+					_, err = Runner.Create(groot.CreateSpec{
+						ID:                      "my-empty",
+						BaseImageURL:            integration.String2URL("docker:///cfgarden/empty:v0.1.1"),
+						Mount:                   false,
+						CleanOnCreate:           true,
+						CleanOnCreateCacheBytes: 1024,
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					afterContents, err := ioutil.ReadDir(filepath.Join(StorePath, store.VolumesDirName))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(afterContents).To(HaveLen(2))
+				})
+			})
+
+			Context("when the unused layers bytes are smaller than the cache size", func() {
+				It("cleans the store first", func() {
+					preContents, err := ioutil.ReadDir(filepath.Join(StorePath, store.VolumesDirName))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(preContents).To(HaveLen(1))
+
+					_, err = Runner.Create(groot.CreateSpec{
+						ID:                      "my-empty",
+						BaseImageURL:            integration.String2URL("docker:///cfgarden/empty:v0.1.1"),
+						Mount:                   false,
+						CleanOnCreate:           true,
+						CleanOnCreateCacheBytes: 1024 * 1024 * 1024 * 1024,
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					afterContents, err := ioutil.ReadDir(filepath.Join(StorePath, store.VolumesDirName))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(afterContents).To(HaveLen(3))
+				})
+			})
 		})
 	})
 

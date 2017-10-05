@@ -84,8 +84,8 @@ var _ = Describe("Creator", func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(fakeCleaner.CleanCallCount()).To(Equal(1))
-				_, threshold := fakeCleaner.CleanArgsForCall(0)
-				Expect(threshold).To(Equal(int64(250000)))
+				_, cacheSize := fakeCleaner.CleanArgsForCall(0)
+				Expect(cacheSize).To(Equal(int64(250000)))
 			})
 
 			Context("and fails to clean up", func() {
