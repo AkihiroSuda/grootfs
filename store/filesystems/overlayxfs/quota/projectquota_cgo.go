@@ -153,6 +153,7 @@ func NewControl(logger lager.Logger, basePath string) (*Control, error) {
 // SetQuota - assign a unique project id to directory and set the quota limits
 // for that project id
 func (q *Control) SetQuota(nextProjectID uint32, targetPath string, quota Quota) error {
+	q.logger.Debug("set-quota.just-started", lager.Data{"targetPath": targetPath, "quota": quota.Size, "projectID": nextProjectID, "quotas": fmt.Sprintf("%#v", q.quotas)})
 
 	projectID, ok := q.quotas[targetPath]
 	if !ok {
@@ -161,12 +162,17 @@ func (q *Control) SetQuota(nextProjectID uint32, targetPath string, quota Quota)
 		//
 		// assign project id to new container directory
 		//
+		q.logger.Debug("set-quota.re-set-project-id", lager.Data{"targetPath": targetPath, "quota": quota.Size, "projectID": projectID})
 		err := setProjectID(targetPath, projectID)
 		if err != nil {
+			q.logger.Error("set-quota.re-set-project-id-failed", err, lager.Data{"targetPath": targetPath, "quota": quota.Size, "projectID": projectID})
 			return err
 		}
 
+		q.logger.Debug("using-supplied-project-id", lager.Data{"targetPath": targetPath, "projectID": projectID})
 		q.quotas[targetPath] = projectID
+	} else {
+		q.logger.Debug("PROJECT-ID-REUSED", lager.Data{"desiredProjectID": nextProjectID, "foundProjectID": projectID})
 	}
 
 	//

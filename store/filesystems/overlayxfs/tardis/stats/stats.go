@@ -28,6 +28,8 @@ func VolumeStats(logger lager.Logger, imagePath string) (groot.VolumeStats, erro
 		return groot.VolumeStats{}, errorspkg.Wrapf(err, "fetching project id for %s", imagePath)
 	}
 
+	logger.Debug("project-id-acrquired", lager.Data{"projectID": projectID})
+
 	var exclusiveSize int64
 	if projectID != 0 {
 		exclusiveSize, err = listQuotaUsage(logger, imagePath)
