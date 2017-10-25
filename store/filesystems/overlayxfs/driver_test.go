@@ -431,6 +431,22 @@ var _ = Describe("Driver", func() {
 					})
 				})
 
+				Context("when the DiskLimit is equal to the VolumeSize", func() {
+					BeforeEach(func() {
+						volumeSize := int64(10000)
+						layerID := randVolumeID()
+						_ = createVolume(storePath, driver, "parent-id", layerID, volumeSize)
+
+						spec.BaseVolumeIDs = []string{layerID}
+						spec.DiskLimit = volumeSize
+					})
+
+					It("returns an error", func() {
+						_, err := driver.CreateImage(logger, spec)
+						Expect(err).To(MatchError(ContainSubstring("disk limit is smaller than volume size")))
+					})
+				})
+
 				It("creates a image quota file containing the requested quota", func() {
 					Expect(filepath.Join(spec.ImagePath, "image_quota")).ToNot(BeAnExistingFile())
 					_, err := driver.CreateImage(logger, spec)

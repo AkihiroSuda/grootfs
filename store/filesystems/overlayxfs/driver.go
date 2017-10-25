@@ -503,6 +503,7 @@ func (d *Driver) getLowerDirs(logger lager.Logger, volumeIDs []string) ([]string
 
 		baseVolumePaths = append(baseVolumePaths, filepath.Join(LinksDirName, string(shortId)))
 	}
+
 	return baseVolumePaths, totalVolumeSize, nil
 }
 
@@ -694,7 +695,7 @@ func (d *Driver) applyDiskLimit(logger lager.Logger, spec image_cloner.ImageDriv
 	} else {
 		logger.Debug("applying-inclusive-quotas")
 		diskLimit -= volumeSize
-		if diskLimit < 0 {
+		if diskLimit <= 0 {
 			err := errorspkg.New("disk limit is smaller than volume size")
 			logger.Error("applying-inclusive-quota-failed", err, lager.Data{"imagePath": spec.ImagePath})
 			return err
