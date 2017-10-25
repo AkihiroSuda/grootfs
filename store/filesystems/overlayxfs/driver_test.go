@@ -423,30 +423,6 @@ var _ = Describe("Driver", func() {
 					Eventually(sess.Err).Should(gbytes.Say("No space left on device"))
 				})
 
-				Context("when the DiskLimit is smaller than VolumeSize", func() {
-					It("returns an error", func() {
-						spec.DiskLimit = 4000
-						_, err := driver.CreateImage(logger, spec)
-						Expect(err).To(MatchError(ContainSubstring("disk limit is smaller than volume size")))
-					})
-				})
-
-				Context("when the DiskLimit is equal to the VolumeSize", func() {
-					BeforeEach(func() {
-						volumeSize := int64(10000)
-						layerID := randVolumeID()
-						_ = createVolume(storePath, driver, "parent-id", layerID, volumeSize)
-
-						spec.BaseVolumeIDs = []string{layerID}
-						spec.DiskLimit = volumeSize
-					})
-
-					It("returns an error", func() {
-						_, err := driver.CreateImage(logger, spec)
-						Expect(err).To(MatchError(ContainSubstring("disk limit is smaller than volume size")))
-					})
-				})
-
 				It("creates a image quota file containing the requested quota", func() {
 					Expect(filepath.Join(spec.ImagePath, "image_quota")).ToNot(BeAnExistingFile())
 					_, err := driver.CreateImage(logger, spec)
@@ -455,6 +431,42 @@ var _ = Describe("Driver", func() {
 					ensureQuotaMatches(filepath.Join(spec.ImagePath, "image_quota"), 1024*1024*10-3145728)
 				})
 
+				Context("when the DiskLimit is smaller than VolumeSize", func() {
+					It("returns an error", func() {
+						spec.DiskLimit = 4000
+						_, err := driver.CreateImage(logger, spec)
+						Expect(err).To(MatchError(ContainSubstring("disk limit is smaller than volume size")))
+					})
+				})
+
+				FContext("when the DiskLimit is less than the minimum quota (1024*181 bytes) after accounting for the VolumeSize", func() {
+					BeforeEach(func() {
+						volumeSize := int64(10000)
+						layerID := randVolumeID()
+						_ = createVolume(storePath, driver, "parent-id", layerID, volumeSize)
+
+						spec.BaseVolumeIDs = []string{layerID}
+						spec.DiskLimit = volumeSize + 500
+					})
+
+					It("enforces the minimum required quota in the image", func() {
+						_, err := driver.CreateImage(logger, spec)
+						Expect(err).ToNot(HaveOccurred())
+						imageRootfsPath := filepath.Join(spec.ImagePath, overlayxfs.RootfsDir)
+
+						dd := exec.Command("dd", "if=/dev/zero", fmt.Sprintf("of=%s/file-1", imageRootfsPath), "count=1", "bs=128")
+						sess, err := gexec.Start(dd, GinkgoWriter, GinkgoWriter)
+						Expect(err).NotTo(HaveOccurred())
+						Eventually(sess).Should(gexec.Exit(0))
+						// time.Sleep(1 * time.Hour)
+
+						dd = exec.Command("dd", "if=/dev/zero", fmt.Sprintf("of=%s/file-2", imageRootfsPath), "count=1", "bs=1M")
+						sess, err = gexec.Start(dd, GinkgoWriter, GinkgoWriter)
+						Expect(err).NotTo(HaveOccurred())
+						Eventually(sess, 5*time.Second).Should(gexec.Exit(1))
+						Eventually(sess.Err).Should(gbytes.Say("No space left on device"))
+					})
+				})
 			})
 
 			Context("exclusive quota", func() {
